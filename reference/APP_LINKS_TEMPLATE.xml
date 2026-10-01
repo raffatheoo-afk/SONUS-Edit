@@ -1,0 +1,15 @@
+<!--
+Adicionar ao MainActivity SOMENTE quando existir um domínio HTTPS realmente controlado.
+Exemplo de host ilustrativo: edit.SEUDOMINIO.com.br
+NÃO publicar este bloco com um domínio fictício.
+
+<intent-filter android:autoVerify="true">
+    <action android:name="android.intent.action.VIEW" />
+    <category android:name="android.intent.category.DEFAULT" />
+    <category android:name="android.intent.category.BROWSABLE" />
+    <data
+        android:scheme="https"
+        android:host="edit.SEUDOMINIO.com.br"
+        android:pathPrefix="/create" />
+</intent-filter>
+-->

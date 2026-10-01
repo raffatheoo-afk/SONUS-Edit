@@ -1,0 +1,488 @@
+PROMPT MESTRE — SONUS EDIT
+Data de referência: 30/09/2026
+
+============================================================
+1. IDENTIDADE DO PROJETO
+============================================================
+
+Projeto: SONUS Edit
+Plataforma inicial: Android
+Package: com.sonusstudios.sonusedit
+Base inicial: 0.1.0 / versionCode 1
+
+SONUS Edit é um aplicativo NOVO e separado do SONUS principal.
+O editor existente dentro do SONUS principal permanece como uma ferramenta básica/plugin.
+SONUS Edit será o produto completo e especializado em criação e edição de vídeos musicais.
+
+NÃO confundir os projetos:
+- SONUS principal: com.sonusstudios.streampulse
+- SONUS Edit: com.sonusstudios.sonusedit
+
+A criação deste projeto NÃO faz parte da atualização code122 do SONUS.
+Nenhuma alteração no SONUS principal deve ser aplicada apenas por existir este projeto.
+
+============================================================
+2. VISÃO DO PRODUTO
+============================================================
+
+O objetivo não é copiar CapCut ou criar apenas uma timeline vazia.
+O grande diferencial é AUTOMÁTICO PRIMEIRO, MANUAL DEPOIS.
+
+Fluxo principal:
+
+MÚSICA + FOTOS/VÍDEOS + ESTILO
+-> SONUS Edit analisa e monta o vídeo
+-> letra sincronizada aparece automaticamente quando encontrada
+-> cortes/transições/movimento seguem o ritmo
+-> usuário recebe um primeiro vídeo pronto
+-> depois pode refinar tudo manualmente na timeline
+-> exporta
+
+O projeto criado automaticamente deve ser o MESMO tipo de projeto usado pelo editor manual. Nunca criar dois motores separados.
+
+============================================================
+3. FONTES DE MÚSICA
+============================================================
+
+1) SONUS Stream
+2) música local do aparelho
+3) áudio recebido por compartilhamento Android
+4) áudio extraído/importado de vídeo quando essa função for implementada
+
+Quando uma faixa vier do SONUS Stream, receber inicialmente apenas trackId e parâmetros de trecho. Nunca transportar segredo ou URL privada permanente via deep link.
+
+============================================================
+4. INTEGRAÇÃO COM SONUS
+============================================================
+
+Contrato inicial:
+sonusedit://create?source=sonus&trackId=TRACK_ID&startMs=0&durationMs=30000
+
+SONUS package:
+com.sonusstudios.streampulse
+
+SONUS Edit package:
+com.sonusstudios.sonusedit
+
+SONUS deve abrir o SONUS Edit por Intent explícito quando essa integração for autorizada no futuro.
+
+O SONUS Edit deve:
+1. receber trackId;
+2. validar entrada;
+3. criar projeto provisório;
+4. buscar metadados no backend SONUS;
+5. obter acesso autorizado/temporário ao áudio quando necessário;
+6. procurar letra sincronizada;
+7. abrir o editor.
+
+NUNCA colocar em URI:
+- senha
+- token Firebase
+- token pCloud
+- segredo de backend
+- URL privada permanente
+
+Android App Links HTTPS só devem ser ativados quando houver domínio real controlado e assetlinks.json publicado.
+
+============================================================
+5. LETRAS SINCRONIZADAS — FUNÇÃO CENTRAL
+============================================================
+
+A experiência desejada:
+
+O usuário escolhe uma música como uma faixa do Gusttavo Lima.
+O SONUS Edit lê título, artista, álbum e duração.
+Busca automaticamente letra sincronizada.
+Se a correspondência for boa, a letra entra automaticamente.
+Se não encontrar ou houver dúvida, mostrar uma lupa para busca manual por música/artista.
+
+Provider inicial:
+LRCLIB por interface LyricsProvider.
+
+Nunca acoplar a UI diretamente ao LRCLIB. Deve ser possível adicionar/trocar providers depois.
+
+Fallbacks:
+1. letra já associada à faixa/projeto;
+2. LRC local;
+3. cache local;
+4. busca automática;
+5. busca manual;
+6. abrir Lyricsify como fallback externo, sem depender de scraping/API privada não documentada;
+7. importar LRC;
+8. editor/sincronizador manual.
+
+Se o usuário selecionar só um trecho da música, por exemplo 00:45 até 01:15:
+- pegar apenas linhas correspondentes;
+- subtrair 45 segundos dos timestamps;
+- legenda começa sincronizada no tempo zero do vídeo.
+
+Aceitar arquitetura para:
+- LRC line-sync;
+- word-sync quando disponível;
+- karaoke progressivo;
+- duas linhas (atual/próxima);
+- overlapping vocals futuramente.
+
+============================================================
+6. MODOS AUTOMÁTICOS
+============================================================
+
+Criar inicialmente estes conceitos:
+
+A) LYRIC VIDEO
+Foco em letra, capa/fundo, partículas, movimento e tipografia.
+
+B) BEAT EDIT
+Cortes e transições guiados por batidas/onsets.
+
+C) CINEMATIC
+Movimentos suaves, cortes menos agressivos, fades e tipografia elegante.
+
+D) VISUALIZER
+Capa, waveform/espectro, partículas e letra opcional.
+
+E) SHORT / REEL
+Projetos de 15s, 30s, 60s e duração personalizada; vertical por padrão.
+
+F) SONUS ARTIST
+Recebe faixa do SONUS Stream com capa/metadados já prontos e cria conteúdo para divulgação.
+
+Auto Edit deve produzir uma timeline normal totalmente editável.
+
+============================================================
+7. EDITOR MANUAL
+============================================================
+
+Timeline multi-track preparada para:
+- vídeo principal
+- B-roll/imagens
+- overlays/stickers
+- textos
+- letras
+- música
+- voz/efeitos de áudio
+
+Funções alvo:
+- trim
+- split
+- reorder
+- duplicate
+- delete
+- speed
+- volume
+- fade de áudio
+- mute
+- crop
+- rotate
+- scale
+- position
+- opacity
+- blend quando viável
+- keyframes
+- transitions
+- filtros
+- ajustes de imagem
+- animação de entrada
+- animação de saída
+- undo/redo
+- snap
+- zoom de timeline
+- waveform
+
+A área de gesto da timeline deve ser grande. Evitar controles minúsculos.
+
+============================================================
+8. TEXTO E FONTES
+============================================================
+
+SONUS Edit deve ter sistema de texto muito superior ao Edit básico do SONUS.
+
+Alvo:
+- biblioteca de fontes
+- busca de fonte
+- favoritos
+- conjunto de fontes abertas/licenciadas
+- importação de fontes locais futuramente
+- peso
+- tamanho
+- tracking
+- line height
+- alinhamento
+- maiúsculas/minúsculas quando aplicável
+- cor
+- gradiente
+- contorno
+- sombra
+- fundo
+- blur/placa quando aplicável
+- animações
+- presets
+
+Presets específicos para letras:
+- Minimal
+- Karaoke
+- Lyrics 2 Lines
+- Cinematic
+- Story/Reels
+- Bold Center
+- Lower Third
+
+============================================================
+9. APARÊNCIA / DESIGN SYSTEM
+============================================================
+
+Identidade própria SONUS Edit, relacionada ao ecossistema SONUS sem parecer apenas uma tela arrancada do app principal.
+
+Base visual:
+- preto profundo #080A0F
+- superfícies grafite
+- violeta elétrico como cor principal
+- ciano como destaque informacional/música/sync
+- vermelho somente para erro/perigo/gravação
+- texto branco/off-white
+
+Direção:
+- moderna
+- profissional
+- limpa
+- premium
+- tecnológica
+- não infantil
+- não exagerar em neon
+- não exagerar em cards
+- não usar emoji como ícone
+- usar ícones vetoriais consistentes
+
+HOME:
+- logo SONUS / Edit
+- CTA forte "Criar projeto"
+- criação automática em destaque
+- acesso a projetos recentes
+- templates
+- entrada do SONUS Stream
+
+EDITOR:
+- preview grande no topo
+- timeline abaixo
+- ferramentas no rodapé horizontal
+- painéis inferiores contextuais
+- botão Exportar sempre fácil de localizar
+- playhead muito visível
+- waveform legível
+- pinch zoom
+- haptic nos snaps importantes
+
+============================================================
+10. FORMATOS DE TELA
+============================================================
+
+No mínimo:
+- 9:16
+- 16:9
+- 1:1
+- 4:5
+
+Background:
+- preto
+- cor
+- gradiente
+- blur da própria mídia
+- imagem
+
+============================================================
+11. MOTOR DE MÍDIA
+============================================================
+
+Base principal:
+Jetpack Media3 Transformer / Composition.
+
+Arquitetar por interfaces:
+- ProjectCompiler
+- PreviewEngine
+- ExportEngine
+- BeatAnalysisEngine
+- WaveformEngine
+- LyricsTimingEngine
+- AutoEditEngine
+
+FFmpeg é permitido como ferramenta especializada/fallback, mas NÃO deve ser o único motor nem bloquear UI.
+
+REGRA CRÍTICA:
+Nunca executar conversão, cópia pesada, decode, waveform, análise de batida ou FFmpeg na Main thread.
+
+Qualquer operação longa:
+- background dispatcher apropriado
+- progresso real
+- cancelamento
+- limpeza de temporários
+- tratamento de erro
+
+============================================================
+12. PREVIEW
+============================================================
+
+Preview deve ser rápido e pode trabalhar com qualidade reduzida/proxies.
+Export final usa qualidade escolhida.
+
+Avaliar CompositionPlayer por trás de abstração/feature flag enquanto a API for experimental.
+Nunca amarrar todo o app diretamente a uma API experimental sem camada de proteção.
+
+============================================================
+13. EXPORTAÇÃO
+============================================================
+
+Alvo futuro:
+- 720p
+- 1080p
+- 2K
+- 4K quando aparelho suportar
+- 24 fps
+- 30 fps
+- 60 fps quando suportado
+
+Preservar proporção e orientação.
+Não prometer resolução/FPS que o encoder do aparelho não suporta; detectar capacidade e oferecer fallback claro.
+
+Exportação:
+- não congelar UI
+- progresso
+- cancelar
+- sobreviver a navegação da tela quando necessário
+- limpar temporários
+- preservar original
+- compartilhar resultado
+
+============================================================
+14. PROJETOS
+============================================================
+
+Adicionar:
+- autosave
+- recent projects
+- thumbnail
+- duplicar projeto
+- renomear
+- excluir
+- data da última edição
+- duração/formato
+
+Projeto precisa sobreviver ao fechamento do app.
+Nunca depender só de estado Compose em memória.
+
+============================================================
+15. ROBUSTEZ
+============================================================
+
+- validar URIs recebidas
+- trabalhar corretamente com SAF/MediaStore
+- persistable URI permission quando aplicável
+- nunca assumir caminho real de arquivo para todo content:// URI
+- controlar memória em vídeos grandes
+- thumbnails/proxies em vez de decodificar mídia full-res sem necessidade
+- impedir ANR
+- preservar estado ao background/foreground
+- lidar com processo recriado
+- logs sem segredos
+
+============================================================
+16. ARQUITETURA DE CÓDIGO
+============================================================
+
+Começar no módulo app para acelerar, mas separar packages e interfaces por domínio.
+Quando estabilizar, extrair módulos reais.
+
+Packages/camadas:
+- designsystem
+- model
+- integration
+- lyrics
+- media
+- editor
+- navigation
+- ui
+
+Futuros módulos:
+:core:model
+:core:designsystem
+:core:media
+:core:lyrics
+:core:storage
+:core:sonusbridge
+:feature:home
+:feature:editor
+:feature:lyrics
+:feature:templates
+:feature:export
+
+Não criar dezenas de módulos vazios cedo demais.
+
+============================================================
+17. REGRAS PARA O DESENVOLVIMENTO
+============================================================
+
+1. Mudanças pequenas e verificáveis.
+2. Não reescrever módulos estáveis sem necessidade.
+3. Antes de alterar arquitetura central, explicar impacto.
+4. Cada engine deve ficar atrás de interface quando houver risco de troca futura.
+5. Não declarar função pronta sem teste real.
+6. Não declarar build green sem build real.
+7. Proteger contra regressões.
+8. Nenhuma tarefa pesada no Main thread.
+9. Preservar arquivo original do usuário.
+10. Erros precisam ser amigáveis; exception crua vai para log, não para a interface.
+11. Cancelamento precisa cancelar trabalho real, não somente fechar popup.
+12. Função automática deve resultar em projeto manualmente editável.
+
+============================================================
+18. ESTADO DO STARTER ENTREGUE
+============================================================
+
+Já preparado:
+- projeto Android separado
+- package com.sonusstudios.sonusedit
+- versão 0.1.0 / code1
+- Kotlin/Compose
+- design system inicial
+- Home inicial
+- Editor shell
+- deep link sonusedit://create
+- recebimento de mídia via Share
+- contrato SONUS/SONUS Edit
+- LyricsProvider
+- LrclibLyricsProvider inicial
+- parser LRC
+- recorte/deslocamento automático de LRC por trecho
+- boundary de engine Media3
+- templates para futuros App Links verificados
+
+Ainda NÃO implementado de verdade:
+- media picker completo
+- persistência/autosave
+- timeline interativa
+- preview real
+- multi-track Composition
+- beat detection
+- auto edit
+- fontes completas
+- filtros/transições completos
+- exportação completa
+- backend de bridge SONUS
+
+============================================================
+19. PRÓXIMO PASSO RECOMENDADO
+============================================================
+
+Construir primeiro o núcleo vertical completo:
+
+1. selecionar uma música local;
+2. ler metadados;
+3. buscar letra sincronizada automaticamente;
+4. permitir escolher trecho;
+5. mostrar letra sincronizada no preview;
+6. adicionar uma foto/vídeo;
+7. gerar timeline simples;
+8. exportar um MP4 1080p funcional;
+9. testar no aparelho;
+10. só depois expandir para timeline multi-track e Auto Edit avançado.
+
+Esse núcleo prova a proposta central do SONUS Edit antes de multiplicar ferramentas.

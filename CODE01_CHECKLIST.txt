@@ -1,0 +1,93 @@
+SONUS EDIT 0.1.0 / CODE01 — CHECKLIST
+=====================================
+
+IDENTIDADE / BUILD
+[x] Package com.sonusstudios.sonusedit
+[x] versionName 0.1.0
+[x] versionCode 1
+[x] Workflow Codemagic code01
+[x] Logo SONUS Edit integrado
+
+FLUXO DE CRIAÇÃO
+[x] Abas separadas: Música / Assinatura / Imagens / Estilo / Revisão
+[x] Não exibir todas as funções juntas em uma única tela
+[x] Voltar entre etapas sem apagar o estado da sessão
+[x] Revisão final antes do editor
+
+MÚSICA
+[x] Música obrigatória antes das outras etapas
+[x] Seleção Android OpenDocument
+[x] Leitura de título/artista/duração
+[x] Preview com ExoPlayer
+[x] 15s
+[x] 30s
+[x] 40s
+[x] 50s
+[x] 60s
+[x] 65s
+[x] 1m30
+[x] 2m
+[x] 3m
+[x] 5m
+[x] 10m
+[x] Ajuste -1s / +1s
+[x] Ajuste -5s / +5s
+[x] Ajuste -10s / +10s
+[x] Presets maiores que a música bloqueados
+
+ASSINATURA
+[x] Texto/nome de usuário
+[x] Foto/logo
+[x] Texto ou foto necessários para avançar
+[x] Salvar assinatura como padrão
+[x] Persistência via DataStore
+
+IMAGENS
+[x] Seleção múltipla da galeria
+[x] Mínimo de 5 segundos por imagem
+[x] Limite calculado automaticamente pela duração
+[x] 15s = até 3
+[x] 30s = até 6
+[x] 65s = até 13
+[x] 10min = até 120
+[x] Interface mostra até 20 miniaturas simultâneas
+[x] Contador real de imagens selecionadas
+[x] Remover imagem selecionada
+[x] Formato inicial fixo 9:16
+[x] Draft registra auto-fill/crop sem barras pretas
+[x] Draft registra fade in / fade out
+
+ESTILO
+[x] Padrão
+[x] Moderna
+[x] Elegante
+[x] Clássica
+[x] Minimal
+[x] Impacto
+[x] Manuscrita
+[x] Retrô
+[x] Neon
+[x] Editorial
+[x] Salvar fonte como padrão
+[x] Preset de efeito atual preservado no draft
+
+TESTES / QUALIDADE
+[x] Testes unitários da regra de distribuição
+[x] Teste 15s=3, 30s=6, 65s=13, 10min=120
+[x] Teste impede quantidade acima do limite
+[x] Codemagic executa testes antes do APK
+[x] Codemagic gera SHA-256 do APK
+[x] YAML validado sintaticamente
+[x] XML do AndroidManifest validado sintaticamente
+
+AINDA NÃO DECLARAR PRONTO
+[ ] Render Media3 multi-imagem
+[ ] Crop/zoom 9:16 aplicado no MP4 final
+[ ] Fade aplicado no MP4 final
+[ ] Export final do CreateProjectDraft
+[ ] Timeline multi-track real
+[ ] Backend SONUS Stream getEditTrack
+
+OBSERVAÇÃO
+O botão EXPORTAR do shell manual está desabilitado nesta code01 para não apresentar
+como pronta uma função que o starter ainda não compila em Composition multi-imagem.
