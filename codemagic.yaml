@@ -63,6 +63,8 @@ workflows:
           grep -q 'imageFadeInMs: Long = 1_500L' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
           grep -q 'METADATA_KEY_VIDEO_ROTATION' app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
           grep -q 'publicConfig/sonusMusic/trackOverrides' app/src/main/java/com/sonusstudios/sonusedit/lyrics/SonusLyricsResolver.kt
+          grep -q 'disabledLabelColor = AutomationGreen.copy' app/src/main/java/com/sonusstudios/sonusedit/ui/AutomationSettingsScreen.kt
+          ! grep -q 'disabledSelectedLabelColor' app/src/main/java/com/sonusstudios/sonusedit/ui/AutomationSettingsScreen.kt
 
       - name: Restore persistent Sonus Edit signing
         script: |
