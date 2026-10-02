@@ -1,6 +1,6 @@
 workflows:
-  sonus-edit-0-2-0-code02-debug:
-    name: SONUS Edit 0.2.0 code02 debug
+  sonus-edit-0-0-3-code03-debug:
+    name: Sonus Edit 0.0.3 code03 debug
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -9,14 +9,15 @@ workflows:
       cache_paths:
         - $HOME/.gradle/caches
         - $HOME/.gradle/codemagic
+        - $HOME/.sonus-edit-signing
 
     scripts:
-      - name: Prepare SONUS Edit package
+      - name: Prepare Sonus Edit code03 package
         script: |
           set -euo pipefail
-          ZIP="$CM_BUILD_DIR/SONUS_EDIT_0.2.0_CODE02.zip"
-          EXTRACT_ROOT="$CM_BUILD_DIR/_sonus_edit_code02"
-          PROJECT_DIR="$EXTRACT_ROOT/SONUS_EDIT_0.2.0_CODE02"
+          ZIP="$CM_BUILD_DIR/SONUS_EDIT_0.0.3_CODE03.zip"
+          EXTRACT_ROOT="$CM_BUILD_DIR/_sonus_edit_code03"
+          PROJECT_DIR="$EXTRACT_ROOT/SONUS_EDIT_0.0.3_CODE03"
 
           test -f "$ZIP"
           rm -rf "$EXTRACT_ROOT"
@@ -26,35 +27,72 @@ workflows:
           test -f "$PROJECT_DIR/settings.gradle.kts"
           test -f "$PROJECT_DIR/app/build.gradle.kts"
           test -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
-
           echo "SONUS_EDIT_PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
           echo "Projeto extraído em: $PROJECT_DIR"
 
-      - name: Validate code02 project
+      - name: Validate code03 project
         script: |
           set -euo pipefail
           cd "$SONUS_EDIT_PROJECT_DIR"
-
           test -f app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
           test -f app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
+          test -f app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
+          test -f app/src/main/java/com/sonusstudios/sonusedit/media/SmartStartResolver.kt
           test -f app/src/main/java/com/sonusstudios/sonusedit/catalog/PCloudPublicCatalogClient.kt
-          test -f app/src/main/java/com/sonusstudios/sonusedit/lyrics/SonusLyricsResolver.kt
+          test -f app/src/main/java/com/sonusstudios/sonusedit/lyrics/LrclibLyricsProvider.kt
+          test -f app/src/main/res/drawable-nodpi/effect_neon_stars.webp
           test -f app/src/main/res/drawable-nodpi/sonus_edit_logo.png
-
           grep -q 'applicationId = "com.sonusstudios.sonusedit"' app/build.gradle.kts
-          grep -q 'versionCode = 2' app/build.gradle.kts
-          grep -q 'versionName = "0.2.0"' app/build.gradle.kts
-          grep -q 'DurationPreset(600, "10m")' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
-          grep -q 'MIN_IMAGE_SECONDS = 5' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
-          grep -q 'private fun ColumnScope.StreamPicker' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
-          ! grep -q '^import androidx.compose.foundation.layout.weight$' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+          grep -q 'versionCode = 3' app/build.gradle.kts
+          grep -q 'versionName = "0.0.3"' app/build.gradle.kts
+          grep -q '<string name="app_name">Sonus Edit</string>' app/src/main/res/values/strings.xml
+          grep -q 'DurationPreset(120, "120s")' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          ! grep -q 'DurationPreset(300' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          ! grep -q 'DurationPreset(600' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'P4K("4K", 2160, 3840)' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'audioFadeInMs: Long = 2_500L' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'imageFadeInMs: Long = 1_500L' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+
+      - name: Prepare persistent signing
+        script: |
+          set -euo pipefail
+          cd "$SONUS_EDIT_PROJECT_DIR"
+          if [ -n "${SONUS_KEYSTORE_PATH:-}" ] && [ -n "${SONUS_KEYSTORE_PASSWORD:-}" ] && \
+             [ -n "${SONUS_KEY_ALIAS:-}" ] && [ -n "${SONUS_KEY_PASSWORD:-}" ]; then
+            echo "Using secure Codemagic signing configuration."
+            exit 0
+          fi
+
+          SIGN_DIR="$HOME/.sonus-edit-signing"
+          KEYSTORE="$SIGN_DIR/sonus-edit-dev.jks"
+          PROPS="$SIGN_DIR/signing.env"
+          mkdir -p "$SIGN_DIR"
+          chmod 700 "$SIGN_DIR"
+
+          if [ ! -f "$KEYSTORE" ] || [ ! -f "$PROPS" ]; then
+            PASS="$(openssl rand -hex 18)"
+            keytool -genkeypair -v \
+              -keystore "$KEYSTORE" \
+              -storepass "$PASS" \
+              -keypass "$PASS" \
+              -alias sonusedit \
+              -keyalg RSA -keysize 3072 -validity 10000 \
+              -dname "CN=Sonus Edit, OU=SONUS STUDIOS, O=SONUS STUDIOS, C=BR"
+            printf 'SONUS_KEYSTORE_PASSWORD=%s\nSONUS_KEY_ALIAS=sonusedit\nSONUS_KEY_PASSWORD=%s\n' "$PASS" "$PASS" > "$PROPS"
+            chmod 600 "$PROPS" "$KEYSTORE"
+          fi
+
+          . "$PROPS"
+          echo "SONUS_KEYSTORE_PATH=$KEYSTORE" >> "$CM_ENV"
+          echo "SONUS_KEYSTORE_PASSWORD=$SONUS_KEYSTORE_PASSWORD" >> "$CM_ENV"
+          echo "SONUS_KEY_ALIAS=$SONUS_KEY_ALIAS" >> "$CM_ENV"
+          echo "SONUS_KEY_PASSWORD=$SONUS_KEY_PASSWORD" >> "$CM_ENV"
 
       - name: Install Gradle 8.13
         script: |
           set -euo pipefail
           GRADLE_VERSION=8.13
           GRADLE_HOME_CM="$HOME/.gradle/codemagic/gradle-$GRADLE_VERSION"
-
           if [ ! -x "$GRADLE_HOME_CM/bin/gradle" ]; then
             mkdir -p "$HOME/.gradle/codemagic"
             curl --fail --location --retry 3 \
@@ -62,7 +100,6 @@ workflows:
               -o "/tmp/gradle-${GRADLE_VERSION}.zip"
             unzip -q "/tmp/gradle-${GRADLE_VERSION}.zip" -d "$HOME/.gradle/codemagic"
           fi
-
           echo "GRADLE_CM=$GRADLE_HOME_CM/bin/gradle" >> "$CM_ENV"
           "$GRADLE_HOME_CM/bin/gradle" --version
 
@@ -77,15 +114,15 @@ workflows:
           set -euo pipefail
           cd "$SONUS_EDIT_PROJECT_DIR"
           "$GRADLE_CM" --no-daemon --stacktrace :app:assembleDebug
-
           APK="$(find app/build/outputs/apk/debug -maxdepth 1 -name '*.apk' -type f | head -n 1)"
           test -n "$APK"
-
           mkdir -p "$CM_BUILD_DIR/artifacts"
-          cp "$APK" "$CM_BUILD_DIR/artifacts/SONUS_Edit_0.2.0_code02_debug.apk"
-          shasum -a 256 "$CM_BUILD_DIR/artifacts/SONUS_Edit_0.2.0_code02_debug.apk" \
+          cp "$APK" "$CM_BUILD_DIR/artifacts/Sonus_Edit_0.0.3_code03_debug.apk"
+          shasum -a 256 "$CM_BUILD_DIR/artifacts/Sonus_Edit_0.0.3_code03_debug.apk" \
             | tee "$CM_BUILD_DIR/artifacts/SHA256.txt"
 
     artifacts:
-      - artifacts/SONUS_Edit_0.2.0_code02_debug.apk
+      - artifacts/Sonus_Edit_0.0.3_code03_debug.apk
       - artifacts/SHA256.txt
+      - _sonus_edit_code03/SONUS_EDIT_0.0.3_CODE03/app/build/test-results/**
+      - _sonus_edit_code03/SONUS_EDIT_0.0.3_CODE03/app/build/reports/**
