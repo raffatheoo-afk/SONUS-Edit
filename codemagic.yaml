@@ -1,0 +1,166 @@
+workflows:
+  # IMPORTANT: keep this workflow id stable forever. Codemagic cache for the persistent
+  # Sonus Edit signer is tied to this workflow lineage.
+  sonus-edit-0-0-3-code03-debug:
+    name: Sonus Edit 0.0.5 debug
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      java: 17
+    cache:
+      cache_paths:
+        - $HOME/.gradle/caches
+        - $HOME/.gradle/codemagic
+        - $HOME/.sonus-edit-signing
+
+    scripts:
+      - name: Prepare Sonus Edit package
+        script: |
+          set -euo pipefail
+          ZIP="$CM_BUILD_DIR/Sonus Edit.zip"
+          EXTRACT_ROOT="$CM_BUILD_DIR/_sonus_edit"
+          PROJECT_DIR="$EXTRACT_ROOT/Sonus Edit"
+
+          test -f "$ZIP"
+          rm -rf "$EXTRACT_ROOT"
+          mkdir -p "$EXTRACT_ROOT"
+          unzip -q "$ZIP" -d "$EXTRACT_ROOT"
+
+          test -f "$PROJECT_DIR/settings.gradle.kts"
+          test -f "$PROJECT_DIR/app/build.gradle.kts"
+          test -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+          echo "SONUS_EDIT_PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
+          echo "Projeto extraído em: $PROJECT_DIR"
+
+      - name: Validate Sonus Edit project
+        script: |
+          set -euo pipefail
+          cd "$SONUS_EDIT_PROJECT_DIR"
+
+          test -f app/src/main/java/com/sonusstudios/sonusedit/ui/AutomationSettingsScreen.kt
+          test -f app/src/main/java/com/sonusstudios/sonusedit/create/AutomationPreferences.kt
+          test -f app/src/main/java/com/sonusstudios/sonusedit/create/AutomationPlanner.kt
+          test -f app/src/main/java/com/sonusstudios/sonusedit/create/ContextualImageSelector.kt
+          test -f app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+          test -f app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
+          test -f app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
+          test -f app/src/main/java/com/sonusstudios/sonusedit/lyrics/SonusLyricsResolver.kt
+          test -f app/src/main/java/com/sonusstudios/sonusedit/lyrics/PCloudLyricsRepository.kt
+          test -f app/src/main/java/com/sonusstudios/sonusedit/lyrics/StreamLyricsResolver.kt
+          test -f app/src/main/res/drawable-nodpi/effect_neon_stars.webp
+          test -f app/src/main/res/drawable-nodpi/sonus_edit_icon_foreground.png
+          test -f app/src/main/res/drawable-nodpi/sonus_edit_logo_transparent.png
+
+          grep -q 'applicationId = "com.sonusstudios.sonusedit"' app/build.gradle.kts
+          grep -q 'versionCode = 5' app/build.gradle.kts
+          grep -q 'versionName = "0.0.5"' app/build.gradle.kts
+          grep -q '<string name="app_name">Sonus Edit</string>' app/src/main/res/values/strings.xml
+
+          grep -q 'const val PUBLIC_CODE = "kZNiXQJZTobHXlzVPjzsj9LyASRI77DUtfJk"' app/src/main/java/com/sonusstudios/sonusedit/lyrics/PCloudLyricsRepository.kt
+          grep -q 'streamLyrics.resolve' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+          grep -q 'ContextualImageSelector.select' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+          grep -q 'Pesquisar letra' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+          ! grep -q 'Buscar no LRCLIB' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+          ! grep -q 'LRCLIB' app/src/main/java/com/sonusstudios/sonusedit/ui/AutomationSettingsScreen.kt
+          grep -q 'SONUS STUDIOS - RΛFΛ亗' app/src/main/java/com/sonusstudios/sonusedit/ui/SonusEditApp.kt
+          ! grep -q 'by SONUS STUDIOS - RΛFΛ亗' app/src/main/java/com/sonusstudios/sonusedit/ui/SonusEditApp.kt
+
+          grep -q 'DurationPreset(15, "15s")' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'private val automaticDurations = listOf(30, 40, 50, 60, 65, 90, 120)' app/src/main/java/com/sonusstudios/sonusedit/create/AutomationPlanner.kt
+          ! grep -q 'automaticDurations.*15' app/src/main/java/com/sonusstudios/sonusedit/create/AutomationPlanner.kt
+          ! grep -q 'DurationPreset(300' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          ! grep -q 'DurationPreset(600' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+
+          grep -q 'P720("720p", 720, 1280)' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'P1080("1080p", 1080, 1920)' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'P2K("2K", 1440, 2560)' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'P4K("4K", 2160, 3840)' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'audioFadeInMs: Long = 2_500L' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'imageFadeInMs: Long = 1_500L' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'METADATA_KEY_VIDEO_ROTATION' app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
+          grep -q 'publicConfig/sonusMusic/trackOverrides' app/src/main/java/com/sonusstudios/sonusedit/lyrics/SonusLyricsResolver.kt
+          grep -q 'disabledLabelColor = AutomationGreen.copy' app/src/main/java/com/sonusstudios/sonusedit/ui/AutomationSettingsScreen.kt
+          ! grep -q 'disabledSelectedLabelColor' app/src/main/java/com/sonusstudios/sonusedit/ui/AutomationSettingsScreen.kt
+
+      - name: Restore persistent Sonus Edit signing
+        script: |
+          set -euo pipefail
+          cd "$SONUS_EDIT_PROJECT_DIR"
+
+          # Preferred path: user-managed secure Codemagic environment variables containing
+          # THE SAME key first used for the Sonus Edit persistent signing lineage.
+          if [ -n "${SONUS_KEYSTORE_PATH:-}" ] && [ -n "${SONUS_KEYSTORE_PASSWORD:-}" ] && \
+             [ -n "${SONUS_KEY_ALIAS:-}" ] && [ -n "${SONUS_KEY_PASSWORD:-}" ]; then
+            test -f "$SONUS_KEYSTORE_PATH"
+            echo "Using secure persistent Sonus Edit signer."
+            exit 0
+          fi
+
+          # Compatibility path inherited from code03/code04. NEVER create a new key here.
+          SIGN_DIR="$HOME/.sonus-edit-signing"
+          KEYSTORE="$SIGN_DIR/sonus-edit-dev.jks"
+          PROPS="$SIGN_DIR/signing.env"
+
+          if [ ! -f "$KEYSTORE" ] || [ ! -f "$PROPS" ]; then
+            echo "ERROR: persistent Sonus Edit signing key was not restored."
+            echo "Build stopped intentionally to prevent a different APK signature."
+            echo "Restore the existing signer/cache or configure SONUS_KEYSTORE_* secure variables."
+            exit 41
+          fi
+
+          chmod 600 "$PROPS" "$KEYSTORE"
+          . "$PROPS"
+          : "${SONUS_KEYSTORE_PASSWORD:?missing persistent store password}"
+          : "${SONUS_KEY_ALIAS:?missing persistent key alias}"
+          : "${SONUS_KEY_PASSWORD:?missing persistent key password}"
+
+          keytool -list -keystore "$KEYSTORE" -storepass "$SONUS_KEYSTORE_PASSWORD" -alias "$SONUS_KEY_ALIAS" >/dev/null
+          echo "SONUS_KEYSTORE_PATH=$KEYSTORE" >> "$CM_ENV"
+          echo "SONUS_KEYSTORE_PASSWORD=$SONUS_KEYSTORE_PASSWORD" >> "$CM_ENV"
+          echo "SONUS_KEY_ALIAS=$SONUS_KEY_ALIAS" >> "$CM_ENV"
+          echo "SONUS_KEY_PASSWORD=$SONUS_KEY_PASSWORD" >> "$CM_ENV"
+          echo "Reusing persistent Sonus Edit signer."
+
+      - name: Install Gradle 8.13
+        script: |
+          set -euo pipefail
+          GRADLE_VERSION=8.13
+          GRADLE_HOME_CM="$HOME/.gradle/codemagic/gradle-$GRADLE_VERSION"
+          if [ ! -x "$GRADLE_HOME_CM/bin/gradle" ]; then
+            mkdir -p "$HOME/.gradle/codemagic"
+            curl --fail --location --retry 3 \
+              "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" \
+              -o "/tmp/gradle-${GRADLE_VERSION}.zip"
+            unzip -q "/tmp/gradle-${GRADLE_VERSION}.zip" -d "$HOME/.gradle/codemagic"
+          fi
+          echo "GRADLE_CM=$GRADLE_HOME_CM/bin/gradle" >> "$CM_ENV"
+          "$GRADLE_HOME_CM/bin/gradle" --version
+
+      - name: Unit tests
+        script: |
+          set -euo pipefail
+          cd "$SONUS_EDIT_PROJECT_DIR"
+          "$GRADLE_CM" --no-daemon --stacktrace :app:testDebugUnitTest
+
+      - name: Build debug APK
+        script: |
+          set -euo pipefail
+          cd "$SONUS_EDIT_PROJECT_DIR"
+          "$GRADLE_CM" --no-daemon --stacktrace :app:assembleDebug
+          APK="$(find app/build/outputs/apk/debug -maxdepth 1 -name '*.apk' -type f | head -n 1)"
+          test -n "$APK"
+          mkdir -p "$CM_BUILD_DIR/artifacts"
+          cp "$APK" "$CM_BUILD_DIR/artifacts/Sonus_Edit.apk"
+
+          # Record signer certificate so future builds can be compared without exposing the key.
+          keytool -printcert -jarfile "$CM_BUILD_DIR/artifacts/Sonus_Edit.apk" \
+            | sed -n '/SHA256:/p' > "$CM_BUILD_DIR/artifacts/SIGNER_SHA256.txt" || true
+          shasum -a 256 "$CM_BUILD_DIR/artifacts/Sonus_Edit.apk" \
+            | tee "$CM_BUILD_DIR/artifacts/SHA256.txt"
+
+    artifacts:
+      - artifacts/Sonus_Edit.apk
+      - artifacts/SHA256.txt
+      - artifacts/SIGNER_SHA256.txt
+      - "_sonus_edit/Sonus Edit/app/build/test-results/**"
+      - "_sonus_edit/Sonus Edit/app/build/reports/**"
