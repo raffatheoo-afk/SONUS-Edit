@@ -1,7 +1,7 @@
 workflows:
   # Keep this workflow id stable: the persistent Sonus Edit signer cache belongs to this lineage.
   sonus-edit-0-0-3-code03-debug:
-    name: Sonus Edit 0.0.8 debug
+    name: Sonus Edit 0.0.9 debug
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -62,8 +62,8 @@ workflows:
           test -f app/src/main/res/drawable-nodpi/sonus_edit_logo_transparent.png
 
           grep -q 'applicationId = "com.sonusstudios.sonusedit"' app/build.gradle.kts
-          grep -q 'versionCode = 8' app/build.gradle.kts
-          grep -q 'versionName = "0.0.8"' app/build.gradle.kts
+          grep -q 'versionCode = 9' app/build.gradle.kts
+          grep -q 'versionName = "0.0.9"' app/build.gradle.kts
           grep -q '<string name="app_name">Sonus Edit</string>' app/src/main/res/values/strings.xml
 
           # code07 images: lightweight title + genre ranking only. Lyrics/timeline must not rank images.
@@ -89,10 +89,10 @@ workflows:
 
           # Home/splash regression checks.
           grep -q 'SUGESTÃO PARA O PRÓXIMO VÍDEO' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Text("0.0.8"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Text("0.0.8"' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
-          ! grep -q 'code08' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          ! grep -q 'code08' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+          grep -q 'Text("0.0.9"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
+          grep -q 'Text("0.0.9"' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+          ! grep -q 'code09' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
+          ! grep -q 'code09' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
           grep -q 'by SONUS STUDIOS - RΛFΛ亗' app/src/main/java/com/sonusstudios/sonusedit/ui/SonusEditApp.kt
           ! grep -q 'SONUS STUDIOS - RΛFΛ亗' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
           ! grep -q 'SONUS STUDIOS - RΛFΛ亗' app/src/main/java/com/sonusstudios/sonusedit/ui/AutomationSettingsScreen.kt
@@ -109,6 +109,18 @@ workflows:
           grep -q 'foregroundServiceType="mediaProcessing|dataSync"' app/src/main/AndroidManifest.xml
           grep -q 'GERAR OUTRA COMBINAÇÃO' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
           ! grep -q 'A resolução e o FPS selecionados são validados' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+
+
+          # code09 favorite/effect rotation + delicate visual tuning.
+          test -f app/src/main/java/com/sonusstudios/sonusedit/create/AutomationRotationSelector.kt
+          grep -q 'shuffle bags for user favorites' app/src/main/java/com/sonusstudios/sonusedit/create/AutomationRotationSelector.kt
+          grep -q 'EffectIds.all.shuffled' app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticEffectSelector.kt
+          grep -q 'effectScale = 0.92f' app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
+          grep -q 'BALANCED("Equilibrada", 0.56f)' app/src/main/java/com/sonusstudios/sonusedit/create/AutomationPreferences.kt
+          grep -q '0.0478f' app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
+          grep -q 'rotationSelector.selectFilter' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+          grep -q 'rotationSelector.selectFont' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+          grep -q 'effectSelector.select(automationProjectKey, regenerationNonce)' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
 
           # Preserve established stability rules.
           grep -q 'DurationPreset(15, "15s")' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
