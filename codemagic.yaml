@@ -17,20 +17,52 @@ workflows:
       - name: Prepare Sonus Edit package
         script: |
           set -euo pipefail
-          ZIP="$CM_BUILD_DIR/Sonus Edit.zip"
           EXTRACT_ROOT="$CM_BUILD_DIR/_sonus_edit"
-          PROJECT_DIR="$EXTRACT_ROOT/Sonus Edit"
 
-          test -f "$ZIP"
+          # GitHub/Android browsers can normalize spaces in uploaded filenames.
+          # Accept the clean filename first and legacy variants as fallback.
+          ZIP=""
+          for CANDIDATE in \
+            "$CM_BUILD_DIR/SonusEdit.zip" \
+            "$CM_BUILD_DIR/Sonus Edit.zip" \
+            "$CM_BUILD_DIR/Sonus%20Edit.zip"; do
+            if [ -f "$CANDIDATE" ]; then
+              ZIP="$CANDIDATE"
+              break
+            fi
+          done
+
+          if [ -z "$ZIP" ]; then
+            echo "ERROR: Sonus Edit package not found in $CM_BUILD_DIR"
+            echo "Available ZIP files:"
+            find "$CM_BUILD_DIR" -maxdepth 1 -type f -name '*.zip' -print || true
+            exit 21
+          fi
+
           rm -rf "$EXTRACT_ROOT"
           mkdir -p "$EXTRACT_ROOT"
           unzip -q "$ZIP" -d "$EXTRACT_ROOT"
 
-          test -f "$PROJECT_DIR/settings.gradle.kts"
-          test -f "$PROJECT_DIR/app/build.gradle.kts"
-          test -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+          SETTINGS_FILE="$(find "$EXTRACT_ROOT" -maxdepth 3 -type f -name settings.gradle.kts -print -quit)"
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "ERROR: settings.gradle.kts not found after extracting $ZIP"
+            find "$EXTRACT_ROOT" -maxdepth 3 -type f | sort | head -n 100 || true
+            exit 22
+          fi
+
+          PROJECT_SOURCE="$(dirname "$SETTINGS_FILE")"
+          test -f "$PROJECT_SOURCE/app/build.gradle.kts"
+          test -f "$PROJECT_SOURCE/app/src/main/AndroidManifest.xml"
+
+          # Persist a path without spaces between Codemagic steps.
+          PROJECT_DIR="$CM_BUILD_DIR/_sonus_edit_project"
+          rm -f "$PROJECT_DIR"
+          ln -s "$PROJECT_SOURCE" "$PROJECT_DIR"
+
           echo "SONUS_EDIT_PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
-          echo "Projeto extraído em: $PROJECT_DIR"
+          echo "Package: $(basename "$ZIP")"
+          echo "Projeto extraído em: $PROJECT_SOURCE"
+          echo "Projeto para build: $PROJECT_DIR"
 
       - name: Validate Sonus Edit project
         script: |
@@ -162,5 +194,5 @@ workflows:
       - artifacts/Sonus_Edit.apk
       - artifacts/SHA256.txt
       - artifacts/SIGNER_SHA256.txt
-      - "_sonus_edit/Sonus Edit/app/build/test-results/**"
-      - "_sonus_edit/Sonus Edit/app/build/reports/**"
+      - "_sonus_edit/**/app/build/test-results/**"
+      - "_sonus_edit/**/app/build/reports/**"
