@@ -1,7 +1,7 @@
 workflows:
   # Keep this workflow id stable: the persistent Sonus Edit signer cache belongs to this lineage.
   sonus-edit-0-0-3-code03-debug:
-    name: Sonus Edit 0.0.7 debug
+    name: Sonus Edit 0.0.8 debug
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -56,12 +56,14 @@ workflows:
           test -f app/src/main/java/com/sonusstudios/sonusedit/lyrics/PCloudLyricsRepository.kt
           test -f app/src/main/java/com/sonusstudios/sonusedit/lyrics/StreamLyricsResolver.kt
           test -f app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
+          test -f app/src/main/java/com/sonusstudios/sonusedit/media/ExportForegroundService.kt
+          test -f app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
           test -f app/src/main/res/drawable-nodpi/effect_neon_stars.webp
           test -f app/src/main/res/drawable-nodpi/sonus_edit_logo_transparent.png
 
           grep -q 'applicationId = "com.sonusstudios.sonusedit"' app/build.gradle.kts
-          grep -q 'versionCode = 7' app/build.gradle.kts
-          grep -q 'versionName = "0.0.7"' app/build.gradle.kts
+          grep -q 'versionCode = 8' app/build.gradle.kts
+          grep -q 'versionName = "0.0.8"' app/build.gradle.kts
           grep -q '<string name="app_name">Sonus Edit</string>' app/src/main/res/values/strings.xml
 
           # code07 images: lightweight title + genre ranking only. Lyrics/timeline must not rank images.
@@ -87,13 +89,26 @@ workflows:
 
           # Home/splash regression checks.
           grep -q 'SUGESTÃO PARA O PRÓXIMO VÍDEO' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Text("0.0.7"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Text("0.0.7"' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
-          ! grep -q 'code07' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          ! grep -q 'code07' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+          grep -q 'Text("0.0.8"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
+          grep -q 'Text("0.0.8"' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+          ! grep -q 'code08' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
+          ! grep -q 'code08' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
           grep -q 'by SONUS STUDIOS - RΛFΛ亗' app/src/main/java/com/sonusstudios/sonusedit/ui/SonusEditApp.kt
           ! grep -q 'SONUS STUDIOS - RΛFΛ亗' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
           ! grep -q 'SONUS STUDIOS - RΛFΛ亗' app/src/main/java/com/sonusstudios/sonusedit/ui/AutomationSettingsScreen.kt
+
+
+          # code08 subtitle safety + favorites + background export.
+          grep -q 'sanitizeLyricText' app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
+          grep -q 'safeWidth = canvas.width \* 0.84f' app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
+          grep -q 'textPaint.textAlign = Paint.Align.CENTER' app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
+          grep -q 'favoriteFonts' app/src/main/java/com/sonusstudios/sonusedit/create/AutomationPreferences.kt
+          grep -q 'favoriteFilters' app/src/main/java/com/sonusstudios/sonusedit/create/AutomationPreferences.kt
+          grep -q 'EXECUÇÃO 2° PLANO' app/src/main/java/com/sonusstudios/sonusedit/ui/EditorScreen.kt
+          grep -q 'ExportForegroundService' app/src/main/AndroidManifest.xml
+          grep -q 'foregroundServiceType="mediaProcessing|dataSync"' app/src/main/AndroidManifest.xml
+          grep -q 'GERAR OUTRA COMBINAÇÃO' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+          ! grep -q 'A resolução e o FPS selecionados são validados' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
 
           # Preserve established stability rules.
           grep -q 'DurationPreset(15, "15s")' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
