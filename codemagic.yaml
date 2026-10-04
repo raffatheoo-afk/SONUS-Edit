@@ -92,6 +92,11 @@ workflows:
           grep -q 'ORIGINAL_60("Original 60 FPS", "raw_green_60")' app/src/main/java/com/sonusstudios/sonusedit/create/AutomationPreferences.kt
           grep -q 'ORIGINAL_30("Original 30 FPS", "raw_black_30")' app/src/main/java/com/sonusstudios/sonusedit/create/AutomationPreferences.kt
           grep -q 'class RawParticleVideoEffect' app/src/main/java/com/sonusstudios/sonusedit/media/RawParticleVideoEffect.kt
+          grep -q 'override fun toGlShaderProgram(context: Context, useHdr: Boolean): GlShaderProgram {' app/src/main/java/com/sonusstudios/sonusedit/media/RawParticleVideoEffect.kt
+          grep -q '^class RawParticleKeyShaderProgram(' app/src/main/java/com/sonusstudios/sonusedit/media/RawParticleVideoEffect.kt
+          ! grep -q '^private class RawParticleKeyShaderProgram(' app/src/main/java/com/sonusstudios/sonusedit/media/RawParticleVideoEffect.kt
+          grep -q 'mutableStateOf<String>(EffectIds.RAW_GREEN_60)' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+          ! grep -R -q 'EffectIds.STAR' app/src/main/java
           grep -q 'enum class Mode { GREEN_CHROMA, BLACK_LUMA }' app/src/main/java/com/sonusstudios/sonusedit/media/RawParticleVideoEffect.kt
           grep -q 'R.raw.sonus_particles_green_60fps' app/src/main/java/com/sonusstudios/sonusedit/media/RawParticleVideoEffect.kt
           grep -q 'R.raw.sonus_particles_black_30fps' app/src/main/java/com/sonusstudios/sonusedit/media/RawParticleVideoEffect.kt
