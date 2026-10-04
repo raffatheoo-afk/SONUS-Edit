@@ -1,7 +1,7 @@
 workflows:
   # Keep this workflow id stable: the persistent Sonus Edit signer cache belongs to this lineage.
   sonus-edit-0-0-3-code03-debug:
-    name: Sonus Edit 0.0.12 debug
+    name: Sonus Edit 0.0.13 debug
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -63,8 +63,8 @@ workflows:
           test -f app/src/main/res/drawable-nodpi/sonus_edit_logo_transparent.png
 
           grep -q 'applicationId = "com.sonusstudios.sonusedit"' app/build.gradle.kts
-          grep -q 'versionCode = 12' app/build.gradle.kts
-          grep -q 'versionName = "0.0.12"' app/build.gradle.kts
+          grep -q 'versionCode = 13' app/build.gradle.kts
+          grep -q 'versionName = "0.0.13"' app/build.gradle.kts
           grep -q '<string name="app_name">Sonus Edit</string>' app/src/main/res/values/strings.xml
 
           # code07 images: lightweight title + genre ranking only. Lyrics/timeline must not rank images.
@@ -90,8 +90,8 @@ workflows:
 
           # Home/splash regression checks.
           grep -q 'SUGESTÃO PARA O PRÓXIMO VÍDEO' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Text("0.0.12"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Text("0.0.12"' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+          grep -q 'Text("0.0.13"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
+          grep -q 'Text("0.0.13"' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
           ! grep -q 'code11' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
           ! grep -q 'code11' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
           grep -q 'by SONUS STUDIOS - RΛFΛ亗' app/src/main/java/com/sonusstudios/sonusedit/ui/SonusEditApp.kt
@@ -112,7 +112,7 @@ workflows:
           ! grep -q 'A resolução e o FPS selecionados são validados' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
 
 
-          # code12: smoother 30 FPS full-frame particle source, exact 9:16 fit, no zoom, five render variations + Dynamic.
+          # code11: rebuilt transparent 9:16 particle engine, five render variations + Dynamic.
           test -f app/src/main/java/com/sonusstudios/sonusedit/create/AutomationRotationSelector.kt
           grep -q 'shuffle bags for user favorites' app/src/main/java/com/sonusstudios/sonusedit/create/AutomationRotationSelector.kt
           grep -q 'const val RAINBOW = "particles_rainbow"' app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticEffectSelector.kt
@@ -131,20 +131,39 @@ workflows:
           grep -q 'private val atlasRows = 10' app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
           grep -q 'private val atlasFrames = 120' app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
           grep -q 'private val effectFps = 30f' app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
-          grep -q 'RectF(0f, 0f, canvas.width.toFloat(), canvas.height.toFloat())' app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
           grep -q 'sqrt((1f - mix).coerceIn(0f, 1f))' app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
           grep -q 'automaticEffectOpacity = automationSettings.effectIntensity.opacity' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
           grep -q 'drawRainbowFrame' app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
           grep -q 'PorterDuffColorFilter' app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
-          grep -q '0.04085f' app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
+          grep -q '0.03881f' app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
           grep -q 'ParticleStyle.DYNAMIC' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
           grep -q 'title = "Partículas"' app/src/main/java/com/sonusstudios/sonusedit/ui/AutomationSettingsScreen.kt
           grep -q 'Sincronizando…' app/src/main/java/com/sonusstudios/sonusedit/ui/SonusEditApp.kt
           grep -q 'notificationManager().cancel(NOTIFICATION_ID)' app/src/main/java/com/sonusstudios/sonusedit/media/ExportForegroundService.kt
-          grep -q 'preferences.saveSignature(signatureText, signaturePhotoUri?.toString())' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+          grep -q 'preferences.saveSignature(signatureText, signaturePhotoUri?.toString(), signatureFontPreset, signatureColorPreset)' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
           grep -q 'rotationSelector.selectFilter' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
           grep -q 'rotationSelector.selectFont' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
           ! grep -R -q 'effect_neon_stars\|effect_bokeh_soft\|effect_minimal_particles' app/src/main/java app/src/main/res/drawable-nodpi
+
+          # code13: approved typography, caption colors, signature styles, Gallery search and particle polish.
+          grep -q 'DEFAULT("Patrick Hand")' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'MODERN("Concert One")' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'ELEGANT("Amatic SC")' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'IMPACT("Rancho")' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'HANDWRITTEN("Sheila Crayon")' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'MINIMAL("Schoolwork-Regular")' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'NEON("Alley Garden")' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'RETRO("Playball")' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'enum class LyricColorPreset' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'DYNAMIC("Dinâmico")' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'SignatureFontPreset' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'SignatureColorPreset' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          grep -q 'Pesquisar imagens carregadas' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+          grep -q 'Cor da legenda' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+          grep -q 'Fonte da assinatura' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+          grep -q 'Cor da assinatura' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+          grep -q 'Slow temporal colour morph' app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
+          grep -q 'neutral white core + subtle cool halo' app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
 
           # Preserve established stability rules.
           grep -q 'DurationPreset(15, "15s")' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
