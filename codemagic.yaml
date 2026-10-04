@@ -1,7 +1,7 @@
 workflows:
   # Keep this workflow id stable: the persistent Sonus Edit signer cache belongs to this lineage.
   sonus-edit-0-0-3-code03-debug:
-    name: Sonus Edit 0.0.14 debug
+    name: Sonus Edit 0.0.15 debug
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -64,12 +64,15 @@ workflows:
 
           # Version/package identity.
           grep -q 'applicationId = "com.sonusstudios.sonusedit"' app/build.gradle.kts
-          grep -q 'versionCode = 14' app/build.gradle.kts
-          grep -q 'versionName = "0.0.14"' app/build.gradle.kts
+          grep -q 'versionCode = 15' app/build.gradle.kts
+          grep -q 'versionName = "0.0.15"' app/build.gradle.kts
           grep -q 'noCompress += "mp4"' app/build.gradle.kts
+          grep -q 'media3-transformer:1.10.1' app/build.gradle.kts
+          ! grep -q 'media3-transformer:1.11.1' app/build.gradle.kts
+          test "$(grep -c 'androidx.media3:media3-.*:1.10.1' app/build.gradle.kts)" -eq 5
           grep -q '<string name="app_name">Sonus Edit</string>' app/src/main/res/values/strings.xml
-          grep -q 'Text("0.0.14"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Text("0.0.14"' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
+          grep -q 'Text("0.0.15"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
+          grep -q 'Text("0.0.15"' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
 
           # code14 raw video particle engine: two independent original 9:16 MP4s, no atlas.
           test -f app/src/main/res/raw/sonus_particles_green_60fps.mp4
@@ -109,6 +112,11 @@ workflows:
 
           # Preserve natural 9:16 overlay and requested output cadence: no particle crop/zoom/interpolation.
           grep -q 'private fun buildTransparentTimingSequence' app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
+          grep -q 'private fun materializeBundledResource' app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
+          grep -q 'Uri.fromFile(target)' app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
+          ! grep -q 'android.resource://' app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
+          grep -q 'exportErrorMessage(error)' app/src/main/java/com/sonusstudios/sonusedit/media/ExportForegroundService.kt
+          grep -q 'SonusEditExport' app/src/main/java/com/sonusstudios/sonusedit/media/ExportForegroundService.kt
           grep -q 'setFrameRate(draft.exportFps)' app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
           grep -q 'AlphaScale(0f)' app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
           grep -q 'private fun buildRawParticleSequence' app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
