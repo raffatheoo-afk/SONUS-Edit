@@ -173,6 +173,8 @@ workflows:
           ! grep -q 'ContextualImageSelector' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
           grep -q 'const val PUBLIC_CODE = "kZNiXQJZTobHXlzVPjzsj9LyASRI77DUtfJk"' app/src/main/java/com/sonusstudios/sonusedit/lyrics/PCloudLyricsRepository.kt
           grep -q 'suspend fun loadSelected' app/src/main/java/com/sonusstudios/sonusedit/lyrics/PCloudLyricsRepository.kt
+          grep -q 'private suspend fun loadAssetBody' app/src/main/java/com/sonusstudios/sonusedit/lyrics/PCloudLyricsRepository.kt
+          ! grep -q 'private fun loadAssetBody' app/src/main/java/com/sonusstudios/sonusedit/lyrics/PCloudLyricsRepository.kt
           grep -q 'streamLyrics.resolveSelected' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen.kt
           grep -q 'sanitizeLyricText' app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
           grep -q 'safeWidth = canvas.width \* 0.84f' app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
