@@ -5,6 +5,11 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
+      vars:
+        # This repository replaces a ~24 MiB source ZIP frequently; history is not needed by this workflow.
+        # Keep source fetching light so Codemagic does not clone dozens of old ZIP revisions.
+        CM_CLONE_DEPTH: 1
+        CM_CLONE_UNSHALLOW: "false"
       java: 17
     cache:
       cache_paths:
