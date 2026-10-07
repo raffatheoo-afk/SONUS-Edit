@@ -1,216 +1,66 @@
 workflows:
-  # Workflow id intentionally stays unchanged so the persistent signer lineage is preserved.
   sonus-edit-0-0-3-code03-debug:
-    name: Sonus Edit 0.0.18 debug
+    name: Sonus Edit 0.0.19 debug
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
       vars:
         CM_CLONE_DEPTH: 1
-        CM_CLONE_UNSHALLOW: "false"
+        CM_CLONE_UNSHALLOW: 'false'
       java: 17
     cache:
       cache_paths:
-        - $HOME/.gradle/caches
-        - $HOME/.gradle/codemagic
-        - $HOME/.sonus-edit-signing
-
+      - $HOME/.gradle/caches
+      - $HOME/.gradle/codemagic
+      - $HOME/.sonus-edit-signing
     scripts:
-      - name: Prepare Sonus Edit package
-        script: |
-          set -euo pipefail
-          EXTRACT_ROOT="$CM_BUILD_DIR/_sonus_edit"
-          rm -rf "$EXTRACT_ROOT"
-          mkdir -p "$EXTRACT_ROOT"
-          ZIP=""
-          for candidate in "$CM_BUILD_DIR/SonusEdit.zip" "$CM_BUILD_DIR/Sonus Edit.zip" "$CM_BUILD_DIR/Sonus%20Edit.zip"; do
-            if [ -f "$candidate" ]; then ZIP="$candidate"; break; fi
-          done
-          if [ -z "$ZIP" ]; then
-            echo "ERROR: SonusEdit.zip not found in repository root."
-            find "$CM_BUILD_DIR" -maxdepth 1 -type f -print
-            exit 21
-          fi
-          unzip -q "$ZIP" -d "$EXTRACT_ROOT"
-          SETTINGS="$(find "$EXTRACT_ROOT" -maxdepth 3 -type f -name settings.gradle.kts | head -n 1)"
-          test -n "$SETTINGS"
-          PROJECT_DIR="$(dirname "$SETTINGS")"
-          test -f "$PROJECT_DIR/app/build.gradle.kts"
-          test -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
-          echo "SONUS_EDIT_PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
-          echo "Projeto extraído em: $PROJECT_DIR"
+    - name: Prepare Sonus Edit package
+      script: "set -euo pipefail\nEXTRACT_ROOT=\"$CM_BUILD_DIR/_sonus_edit\"\nrm -rf \"$EXTRACT_ROOT\"\nmkdir -p \"$EXTRACT_ROOT\"\nZIP=\"\"\nfor candidate in \"$CM_BUILD_DIR/SonusEdit.zip\" \"$CM_BUILD_DIR/Sonus Edit.zip\" \"$CM_BUILD_DIR/Sonus%20Edit.zip\"; do\n  if [ -f \"$candidate\" ]; then ZIP=\"$candidate\"; break; fi\ndone\nif [ -z \"$ZIP\" ]; then\n  echo \"ERROR: SonusEdit.zip not found in repository root.\"\n  find \"$CM_BUILD_DIR\" -maxdepth 1 -type f -print\n  exit 21\nfi\nunzip -q \"$ZIP\" -d \"$EXTRACT_ROOT\"\nSETTINGS=\"$(find \"$EXTRACT_ROOT\" -maxdepth 3 -type f -name settings.gradle.kts | head -n 1)\"\ntest -n \"$SETTINGS\"\nPROJECT_DIR=\"$(dirname \"$SETTINGS\")\"\ntest -f \"$PROJECT_DIR/app/build.gradle.kts\"\ntest -f \"$PROJECT_DIR/app/src/main/AndroidManifest.xml\"\necho \"SONUS_EDIT_PROJECT_DIR=$PROJECT_DIR\" >> \"$CM_ENV\"\necho \"Projeto extraído em: $PROJECT_DIR\"\n"
+    - name: Validate Sonus Edit 0.0.19
+      script: "set -euo pipefail\ncd \"$SONUS_EDIT_PROJECT_DIR\"\nFLOW=app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt\nSETTINGS=app/src/main/java/com/sonusstudios/sonusedit/ui/AutomationSettingsScreen.kt\nWHISPER=app/src/main/java/com/sonusstudios/sonusedit/create/WhisperCaptionEngine.kt\nARTISTS=app/src/main/java/com/sonusstudios/sonusedit/create/ArtistGenreResolver.kt\nSELECTOR=app/src/main/java/com/sonusstudios/sonusedit/create/SmartImageSelector.kt\nVISUAL=app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt\nKEY_SHADER=app/src/main/res/raw/sonus_video_key_fragment.glsl\n\n# Required source/data files.\nfor f in \"$FLOW\" \"$SETTINGS\" \"$WHISPER\" \"$ARTISTS\" \"$SELECTOR\" \"$VISUAL\"   app/src/main/java/com/sonusstudios/sonusedit/create/AudioSegmentWavExtractor.kt   app/src/main/java/com/sonusstudios/sonusedit/create/AutomationRotationSelector.kt   app/src/main/java/com/sonusstudios/sonusedit/create/CreationDraftStore.kt   app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt   app/src/main/assets/sonus_artist_genres.db CODE19_APPROVED_CHECKLIST.txt CODE19_IMPLEMENTATION.md; do\n  test -f \"$f\"\ndone\n\n# Version/dependency contracts.\ngrep -q 'applicationId = \"com.sonusstudios.sonusedit\"' app/build.gradle.kts\ngrep -q 'versionCode = 19' app/build.gradle.kts\ngrep -q 'versionName = \"0.0.19\"' app/build.gradle.kts\ngrep -q 'versionName=0.0.19' BUILD_VERSION.txt\ngrep -q 'versionCode=19' BUILD_VERSION.txt\ngrep -q 'Text(\"0.0.19\"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt\ngrep -q 'Text(\"0.0.19\"' \"$FLOW\"\ngrep -q 'dev.ffmpegkit-maintained:whisper-android:1.0.0' app/build.gradle.kts\ntest \"$(grep -c 'androidx.media3:media3-.*:1.10.1' app/build.gradle.kts)\" -eq 5\n\n# Link/Home lazy behavior remains.\n! grep -q 'PCloudMusicRepository\\|StreamSuggestionEngine' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt\ngrep -q 'Criar vídeo automático' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt\ngrep -q 'Criar com Link' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt\ngrep -q 'fun chooseStream()' \"$FLOW\"\n! grep -q 'updateYoutubeDL' app/src/main/java/com/sonusstudios/sonusedit/create/LinkAudioImporter.kt\n\n# Independent captions + red/green/yellow gate.\ngrep -q 'title = \"Legenda automática\"' \"$SETTINGS\"\ngrep -q 'checked = current.automaticLyrics' \"$SETTINGS\"\n! grep -q 'checked = current.totalAutomation || current.automaticLyrics' \"$SETTINGS\"\ngrep -q 'if (!automation.automaticLyrics) return' \"$FLOW\"\ngrep -q 'val captionPending = automation.automaticLyrics && !captionCompleted && captionError == null' \"$FLOW\"\ngrep -q 'CreateStep18.STYLE, CreateStep18.REVIEW -> !captionPending' \"$FLOW\"\ngrep -q '\U0001F7E1 ERRO NA LEGENDA' \"$FLOW\"\ngrep -q '\U0001F534 SINCRONIZANDO LETRA' \"$FLOW\"\ngrep -q '\U0001F7E2 LETRA SINCRONIZADA' \"$FLOW\"\ntest ! -d app/src/main/java/com/sonusstudios/sonusedit/lyrics\n! grep -q 'StreamLyricsResolver\\|LrclibLyricsProvider\\|PCloudLyricsRepository' \"$FLOW\"\n\n# Whisper Base accuracy pipeline.\ngrep -q 'MODEL_NAME = \"ggml-base.bin\"' \"$WHISPER\"\ngrep -q 'MODEL_SHA1 = \"465707469ff3a37a2b9b8d8f89f2f99de7299dac\"' \"$WHISPER\"\ngrep -q 'CHUNK_MS = 30_000L' \"$WHISPER\"\ngrep -q 'CHUNK_OVERLAP_MS = 1_500L' \"$WHISPER\"\ngrep -q 'deduplicateOverlap()' \"$WHISPER\"\ngrep -q 'Whisper.releaseModel' \"$WHISPER\"\ngrep -q 'normalizePcm16Mono' app/src/main/java/com/sonusstudios/sonusedit/create/AudioSegmentWavExtractor.kt\n\n# Caption outline + green particle key fix.\ngrep -q 'Paint.Style.STROKE' \"$VISUAL\"\ngrep -q 'textPaint.color = Color.BLACK' \"$VISUAL\"\ngrep -q 'greenDominance' \"$KEY_SHADER\"\ngrep -q 'signalAlpha' \"$KEY_SHADER\"\ngrep -q 'if (alpha < 0.018) alpha = 0.0' \"$KEY_SHADER\"\n\n# Settings signature and simple gallery selection.\ngrep -q 'Text(preset.label' \"$SETTINGS\"\ngrep -q 'label = { Text(\"Nome / usuário\") }' \"$SETTINGS\"\n! grep -q 'listOf(\"P\", \"R\", \"Pl\")' \"$SETTINGS\"\ngrep -q 'Pesquisar Sonus Gallery' \"$FLOW\"\n! grep -q 'Selecionadas • ordem do vídeo' \"$FLOW\"\ngrep -q 'Color(0xFF2EBE73)' \"$FLOW\"\n\n# Favorites + exact 3x3 visible filter set.\ngrep -q 'combinedClickable' \"$FLOW\"\ngrep -q 'Icons.Default.Star' \"$FLOW\"\ngrep -q 'favoriteFonts.ifEmpty { FontPresetId.entries.toSet() }' \"$FLOW\"\ngrep -q 'approvedFavorites.ifEmpty { visibleSet }' \"$FLOW\"\ngrep -q 'class AutomationRotationSelector' app/src/main/java/com/sonusstudios/sonusedit/create/AutomationRotationSelector.kt\npython3 - <<'PY2'\nfrom pathlib import Path\nimport re\ntext=Path('app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt').read_text()\nm=re.search(r'private val visibleFilters18 = listOf\\((.*?)\\n\\)', text, re.S)\nassert m\nids=re.findall(r'FilterPresetId\\.([A-Z_]+)',m.group(1))\nexpected=['ORIGINAL','CINEMATIC','SUNSET','NIGHT_CITY','NATURAL_PLUS','GOLDEN','SOFT_CONTRAST','WARM_NATURAL','COOL_NATURAL']\nassert ids==expected,(ids,expected)\nPY2\ngrep -q 'WARM_NATURAL(\"Quente Natural\")' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt\ngrep -q 'COOL_NATURAL(\"Frio Natural\")' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt\ngrep -q 'SOFT_CONTRAST(\"Contraste Suave\")' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt\ngrep -q 'uTemperature' app/src/main/res/raw/sonus_natural_filter_fragment.glsl\n\n# Indexed local artist database and semantic conflict protection.\ngrep -q 'WHERE a.normalized_name = ?' \"$ARTISTS\"\ngrep -q 'WHERE al.normalized_alias = ?' \"$ARTISTS\"\ngrep -q 'expandBlockedKeywords' \"$ARTISTS\"\ngrep -q 'categoryPolicy' \"$SELECTOR\"\ngrep -q 'MIN_STRICT_CATEGORY_IMAGES = 4' \"$SELECTOR\"\ngrep -q 'return CategoryPolicy(allowed)' \"$SELECTOR\"\npython3 - <<'PY2'\nimport sqlite3\nc=sqlite3.connect('app/src/main/assets/sonus_artist_genres.db')\nassert c.execute('select count(*) from artists').fetchone()[0] == 1924\nassert c.execute('select count(*) from aliases').fetchone()[0] == 40\nassert c.execute('select count(*) from genre_rules').fetchone()[0] == 24\nassert c.execute(\"select category from artists where normalized_name='gustavo mioto'\").fetchone()[0] == 'sertanejo'\nassert 'jesus' in c.execute(\"select positive_keywords from genre_rules where category='gospel'\").fetchone()[0]\nassert 'catolica' in c.execute(\"select positive_keywords from genre_rules where category='catolico'\").fetchone()[0]\nc.close()\nPY2\n\n# Raw particle assets must remain byte-for-byte unchanged.\necho '0fe6dfc79f81795b288e333f5839359c7224558ee448b39b9f20476c2dcc86b9  app/src/main/res/raw/sonus_particles_green_60fps.mp4' | shasum -a 256 -c -\necho '79fd098ff8d51c9b8db622f502792d1bf76cf6a54a7c3bd2afbae591fea525bc  app/src/main/res/raw/sonus_particles_black_30fps.mp4' | shasum -a 256 -c -\n! grep -R -q 'EffectIds.STAR\\|effect_particles_source.webp\\|drawAnimatedEffect\\|atlasFrames' app/src/main\n\n# Core export contracts.\ngrep -q 'DurationPreset(0, \"∞\", untilEnd = true)' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt\n! grep -q 'DurationPreset(90' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt\n! grep -q 'DurationPreset(120' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt\ngrep -q 'HARD_IMAGE_CAP = 50' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt\ngrep -q 'setRemoveAudio(true)' app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt\ngrep -q 'LanczosResample.scaleToFit' app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt\ngrep -q 'draft.exportFps in setOf(30, 60)' app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt\n\n# Splash/signature lineage remains.\ngrep -q 'rotationZ = rotation' app/src/main/java/com/sonusstudios/sonusedit/ui/SonusEditApp.kt\ngrep -q 'sonus_edit_logo_center' app/src/main/java/com/sonusstudios/sonusedit/ui/SonusEditApp.kt\ngrep -q 'by SONUS STUDIOS - RΛFΛ亗' app/src/main/java/com/sonusstudios/sonusedit/ui/SonusEditApp.kt\n\n# Preserve buildfix1 Image icon receiver.\ngrep -q 'import androidx.compose.material.icons.filled.Image' \"$FLOW\"\ngrep -q 'Icons.Default.Image' \"$FLOW\"\n! grep -q 'Image as ImageIcon' \"$FLOW\"\n\necho \"Sonus Edit 0.0.19 / code19 static validation passed.\"\n"
+    - name: Restore persistent Sonus Edit signing
+      script: "set -euo pipefail\ncd \"$SONUS_EDIT_PROJECT_DIR\"\nif [ -n \"${SONUS_KEYSTORE_PATH:-}\" ] && [ -n \"${SONUS_KEYSTORE_PASSWORD:-}\" ] && \\\n   [ -n \"${SONUS_KEY_ALIAS:-}\" ] && [ -n \"${SONUS_KEY_PASSWORD:-}\" ]; then\n  test -f \"$SONUS_KEYSTORE_PATH\"\n  echo \"Using secure persistent Sonus Edit signer.\"\n  exit 0\nfi\nSIGN_DIR=\"$HOME/.sonus-edit-signing\"\nKEYSTORE=\"$SIGN_DIR/sonus-edit-dev.jks\"\nPROPS=\"$SIGN_DIR/signing.env\"\nif [ ! -f \"$KEYSTORE\" ] || [ ! -f \"$PROPS\" ]; then\n  echo \"ERROR: persistent Sonus Edit signing key was not restored.\"\n  echo \"Build stopped intentionally to prevent a different APK signature.\"\n  exit 41\nfi\nchmod 600 \"$PROPS\" \"$KEYSTORE\"\n. \"$PROPS\"\n: \"${SONUS_KEYSTORE_PASSWORD:?missing persistent store password}\"\n: \"${SONUS_KEY_ALIAS:?missing persistent key alias}\"\n: \"${SONUS_KEY_PASSWORD:?missing persistent key password}\"\nkeytool -list -keystore \"$KEYSTORE\" -storepass \"$SONUS_KEYSTORE_PASSWORD\" -alias \"$SONUS_KEY_ALIAS\" >/dev/null\necho \"SONUS_KEYSTORE_PATH=$KEYSTORE\" >> \"$CM_ENV\"\necho \"SONUS_KEYSTORE_PASSWORD=$SONUS_KEYSTORE_PASSWORD\" >> \"$CM_ENV\"\necho \"SONUS_KEY_ALIAS=$SONUS_KEY_ALIAS\" >> \"$CM_ENV\"\necho \"SONUS_KEY_PASSWORD=$SONUS_KEY_PASSWORD\" >> \"$CM_ENV\"\necho \"Reusing persistent Sonus Edit signer.\"\n"
+    - name: Install Gradle 8.13
+      script: "set -euo pipefail\nGRADLE_VERSION=8.13\nGRADLE_HOME_CM=\"$HOME/.gradle/codemagic/gradle-$GRADLE_VERSION\"\nif [ ! -x \"$GRADLE_HOME_CM/bin/gradle\" ]; then\n  mkdir -p \"$HOME/.gradle/codemagic\"\n  curl --fail --location --retry 3 \"https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip\" -o \"/tmp/gradle-${GRADLE_VERSION}.zip\"\n  unzip -q \"/tmp/gradle-${GRADLE_VERSION}.zip\" -d \"$HOME/.gradle/codemagic\"\nfi\necho \"GRADLE_CM=$GRADLE_HOME_CM/bin/gradle\" >> \"$CM_ENV\"\n\"$GRADLE_HOME_CM/bin/gradle\" --version\n"
+    - name: Compile debug Kotlin
+      script: 'set -euo pipefail
 
-      - name: Validate Sonus Edit 0.0.18
-        script: |
-          set -euo pipefail
-          cd "$SONUS_EDIT_PROJECT_DIR"
+        cd "$SONUS_EDIT_PROJECT_DIR"
 
-          test -f app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
-          test -f app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          test -f app/src/main/java/com/sonusstudios/sonusedit/ui/StatisticsScreen.kt
-          test -f app/src/main/java/com/sonusstudios/sonusedit/ui/AutomationSettingsScreen.kt
-          test -f app/src/main/java/com/sonusstudios/sonusedit/create/WhisperCaptionEngine.kt
-          test -f app/src/main/java/com/sonusstudios/sonusedit/create/AudioSegmentWavExtractor.kt
-          test -f app/src/main/java/com/sonusstudios/sonusedit/create/CreationDraftStore.kt
-          test -f app/src/main/java/com/sonusstudios/sonusedit/stats/UsageStatsStore.kt
-          test -f app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
-          test -f app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
+        "$GRADLE_CM" --no-daemon --stacktrace :app:compileDebugKotlin
 
-          grep -q 'applicationId = "com.sonusstudios.sonusedit"' app/build.gradle.kts
-          grep -q 'versionCode = 18' app/build.gradle.kts
-          grep -q 'versionName = "0.0.18"' app/build.gradle.kts
-          grep -q 'dev.ffmpegkit-maintained:whisper-android:1.0.0' app/build.gradle.kts
-          grep -q 'media3-transformer:1.10.1' app/build.gradle.kts
-          test "$(grep -c 'androidx.media3:media3-.*:1.10.1' app/build.gradle.kts)" -eq 5
-          grep -q 'io.github.junkfood02.youtubedl-android:library:0.18.1' app/build.gradle.kts
-          grep -q 'Text("0.0.18"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Text("0.0.18"' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
+        '
+    - name: Unit tests
+      script: 'set -euo pipefail
 
-          # code18 Home: no Stream/pCloud work at startup; main actions are local navigation only.
-          ! grep -q 'PCloudMusicRepository\|StreamSuggestionEngine' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Criar vídeo automático' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Criar com Link' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Rascunho' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Estatísticas' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Ajustes' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
+        cd "$SONUS_EDIT_PROJECT_DIR"
 
-          # code18 automatic captions: audio itself is the source of truth; no LRC resolver in active Create UI.
-          grep -q 'class WhisperCaptionEngine' app/src/main/java/com/sonusstudios/sonusedit/create/WhisperCaptionEngine.kt
-          grep -q 'Whisper.transcribe' app/src/main/java/com/sonusstudios/sonusedit/create/WhisperCaptionEngine.kt
-          grep -q 'Whisper.releaseModel' app/src/main/java/com/sonusstudios/sonusedit/create/WhisperCaptionEngine.kt
-          grep -q 'CaptionSegment' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
-          grep -q 'captionSegments = captionSegments' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
-          ! grep -q 'StreamLyricsResolver\|LrclibLyricsProvider\|PCloudLyricsRepository' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
-          grep -q 'draft.captionSegments.isNotEmpty()' app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
+        "$GRADLE_CM" --no-daemon --stacktrace :app:testDebugUnitTest
 
-          # code18 lazy source behavior and Link fast path.
-          grep -q 'fun chooseStream()' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
-          grep -q 'musicRepo.refreshIfStale()' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
-          ! grep -q 'LaunchedEffect(Unit).*musicRepo' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
-          grep -q 'showLinkInput' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
-          ! grep -q 'updateYoutubeDL' app/src/main/java/com/sonusstudios/sonusedit/create/LinkAudioImporter.kt
-          grep -q 'Preparing importador\|Preparando importador' app/src/main/java/com/sonusstudios/sonusedit/create/LinkAudioImporter.kt
+        '
+    - name: Build debug APK
+      script: 'set -euo pipefail
 
-          # Duration policy: 15/30/40/50/60/65 + infinity, exact-ms timeline, max 50 media.
-          grep -q 'DurationPreset(0, "∞", untilEnd = true)' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
-          ! grep -q 'DurationPreset(90' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
-          ! grep -q 'DurationPreset(120' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
-          grep -q 'durationsForTotalMs' app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
-          grep -q 'HARD_IMAGE_CAP = 50' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+        cd "$SONUS_EDIT_PROJECT_DIR"
 
-          # Local photos + videos are visual media; video audio is removed.
-          grep -q 'localVideoUris' app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
-          grep -q 'arrayOf("image/\*", "video/\*")' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
-          grep -q 'buildLocalVideoItems' app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
-          grep -q 'setRemoveAudio(true)' app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
+        "$GRADLE_CM" --no-daemon --stacktrace :app:assembleDebug
 
-          # Only six approved visible filters in code18 UI.
-          grep -q 'private val visibleFilters18 = listOf' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
-          grep -q 'FilterPresetId.ORIGINAL' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
-          grep -q 'FilterPresetId.CINEMATIC' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
-          grep -q 'FilterPresetId.SUNSET' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
-          grep -q 'FilterPresetId.NIGHT_CITY' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
-          grep -q 'FilterPresetId.NATURAL_PLUS' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
-          grep -q 'FilterPresetId.GOLDEN' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
+        APK="$(find app/build/outputs/apk/debug -maxdepth 1 -name ''*.apk'' -type f | head -n 1)"
 
-          # Local stats + draft + signature in Settings + splash arrows.
-          grep -q 'MANUAL_SECONDS_PER_VIDEO_SECOND = 8.8' app/src/main/java/com/sonusstudios/sonusedit/stats/UsageStatsStore.kt
-          grep -q 'class CreationDraftStore' app/src/main/java/com/sonusstudios/sonusedit/create/CreationDraftStore.kt
-          grep -q 'Assinatura do usuário' app/src/main/java/com/sonusstudios/sonusedit/ui/AutomationSettingsScreen.kt
-          grep -q 'rotationZ = rotation' app/src/main/java/com/sonusstudios/sonusedit/ui/SonusEditApp.kt
-          grep -q 'sonus_edit_logo_center' app/src/main/java/com/sonusstudios/sonusedit/ui/SonusEditApp.kt
-          ! grep -q 'sonus_edit_logo_arrows' app/src/main/java/com/sonusstudios/sonusedit/ui/SonusEditApp.kt
-          grep -q 'by SONUS STUDIOS - RΛFΛ亗' app/src/main/java/com/sonusstudios/sonusedit/ui/SonusEditApp.kt
-          grep -q 'manualWorkMs = currentManualWorkMs()' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
-          grep -q 'resolvedRemoteIds' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
+        test -n "$APK"
 
-          # build fix: Material Image icon is an extension property and must keep its Icons receiver.
-          grep -q 'import androidx.compose.material.icons.filled.Image' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
-          grep -q 'Icons.Default.Image' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
-          ! grep -q 'Image as ImageIcon' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
+        mkdir -p "$CM_BUILD_DIR/artifacts"
 
-          # Preserve code17 visual quality/export and code14 particle assets byte-for-byte.
-          grep -q 'LanczosResample.scaleToFit' app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
-          grep -q 'draft.exportFps in setOf(30, 60)' app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
-          grep -q 'decodedDraft.copy(exportFps = if (decodedDraft.exportFps == 30) 30 else 60)' app/src/main/java/com/sonusstudios/sonusedit/media/ExportForegroundService.kt
-          test -f app/src/main/res/raw/sonus_particles_green_60fps.mp4
-          test -f app/src/main/res/raw/sonus_particles_black_30fps.mp4
-          echo '0fe6dfc79f81795b288e333f5839359c7224558ee448b39b9f20476c2dcc86b9  app/src/main/res/raw/sonus_particles_green_60fps.mp4' | shasum -a 256 -c -
-          echo '79fd098ff8d51c9b8db622f502792d1bf76cf6a54a7c3bd2afbae591fea525bc  app/src/main/res/raw/sonus_particles_black_30fps.mp4' | shasum -a 256 -c -
-          ! grep -R -q 'EffectIds.STAR\|effect_particles_source.webp\|drawAnimatedEffect\|atlasFrames' app/src/main
+        cp "$APK" "$CM_BUILD_DIR/artifacts/SonusEdit.apk"
 
-          # code18 removes the network LRC lookup subsystem from the active source tree.
-          test ! -d app/src/main/java/com/sonusstudios/sonusedit/lyrics
-          ! grep -R -q 'PCloudLyricsRepository\|LrclibLyricsProvider\|StreamLyricsResolver' app/src/main/java
-          grep -q 'MODEL_NAME = "ggml-tiny.bin"' app/src/main/java/com/sonusstudios/sonusedit/create/WhisperCaptionEngine.kt
-          grep -q 'private val transcriptionMutex = Mutex()' app/src/main/java/com/sonusstudios/sonusedit/create/WhisperCaptionEngine.kt
+        keytool -printcert -jarfile "$CM_BUILD_DIR/artifacts/SonusEdit.apk" | sed -n ''/SHA256:/p'' > "$CM_BUILD_DIR/artifacts/SIGNER_SHA256.txt" || true
 
-          echo "Sonus Edit 0.0.18 / code18 static validation passed."
+        shasum -a 256 "$CM_BUILD_DIR/artifacts/SonusEdit.apk" | tee "$CM_BUILD_DIR/artifacts/SHA256.txt"
 
-      - name: Restore persistent Sonus Edit signing
-        script: |
-          set -euo pipefail
-          cd "$SONUS_EDIT_PROJECT_DIR"
-          if [ -n "${SONUS_KEYSTORE_PATH:-}" ] && [ -n "${SONUS_KEYSTORE_PASSWORD:-}" ] && \
-             [ -n "${SONUS_KEY_ALIAS:-}" ] && [ -n "${SONUS_KEY_PASSWORD:-}" ]; then
-            test -f "$SONUS_KEYSTORE_PATH"
-            echo "Using secure persistent Sonus Edit signer."
-            exit 0
-          fi
-          SIGN_DIR="$HOME/.sonus-edit-signing"
-          KEYSTORE="$SIGN_DIR/sonus-edit-dev.jks"
-          PROPS="$SIGN_DIR/signing.env"
-          if [ ! -f "$KEYSTORE" ] || [ ! -f "$PROPS" ]; then
-            echo "ERROR: persistent Sonus Edit signing key was not restored."
-            echo "Build stopped intentionally to prevent a different APK signature."
-            exit 41
-          fi
-          chmod 600 "$PROPS" "$KEYSTORE"
-          . "$PROPS"
-          : "${SONUS_KEYSTORE_PASSWORD:?missing persistent store password}"
-          : "${SONUS_KEY_ALIAS:?missing persistent key alias}"
-          : "${SONUS_KEY_PASSWORD:?missing persistent key password}"
-          keytool -list -keystore "$KEYSTORE" -storepass "$SONUS_KEYSTORE_PASSWORD" -alias "$SONUS_KEY_ALIAS" >/dev/null
-          echo "SONUS_KEYSTORE_PATH=$KEYSTORE" >> "$CM_ENV"
-          echo "SONUS_KEYSTORE_PASSWORD=$SONUS_KEYSTORE_PASSWORD" >> "$CM_ENV"
-          echo "SONUS_KEY_ALIAS=$SONUS_KEY_ALIAS" >> "$CM_ENV"
-          echo "SONUS_KEY_PASSWORD=$SONUS_KEY_PASSWORD" >> "$CM_ENV"
-          echo "Reusing persistent Sonus Edit signer."
-
-      - name: Install Gradle 8.13
-        script: |
-          set -euo pipefail
-          GRADLE_VERSION=8.13
-          GRADLE_HOME_CM="$HOME/.gradle/codemagic/gradle-$GRADLE_VERSION"
-          if [ ! -x "$GRADLE_HOME_CM/bin/gradle" ]; then
-            mkdir -p "$HOME/.gradle/codemagic"
-            curl --fail --location --retry 3 "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" -o "/tmp/gradle-${GRADLE_VERSION}.zip"
-            unzip -q "/tmp/gradle-${GRADLE_VERSION}.zip" -d "$HOME/.gradle/codemagic"
-          fi
-          echo "GRADLE_CM=$GRADLE_HOME_CM/bin/gradle" >> "$CM_ENV"
-          "$GRADLE_HOME_CM/bin/gradle" --version
-
-      - name: Unit tests
-        script: |
-          set -euo pipefail
-          cd "$SONUS_EDIT_PROJECT_DIR"
-          "$GRADLE_CM" --no-daemon --stacktrace :app:testDebugUnitTest
-
-      - name: Build debug APK
-        script: |
-          set -euo pipefail
-          cd "$SONUS_EDIT_PROJECT_DIR"
-          "$GRADLE_CM" --no-daemon --stacktrace :app:assembleDebug
-          APK="$(find app/build/outputs/apk/debug -maxdepth 1 -name '*.apk' -type f | head -n 1)"
-          test -n "$APK"
-          mkdir -p "$CM_BUILD_DIR/artifacts"
-          cp "$APK" "$CM_BUILD_DIR/artifacts/SonusEdit.apk"
-          keytool -printcert -jarfile "$CM_BUILD_DIR/artifacts/SonusEdit.apk" | sed -n '/SHA256:/p' > "$CM_BUILD_DIR/artifacts/SIGNER_SHA256.txt" || true
-          shasum -a 256 "$CM_BUILD_DIR/artifacts/SonusEdit.apk" | tee "$CM_BUILD_DIR/artifacts/SHA256.txt"
-
+        '
     artifacts:
-      - artifacts/SonusEdit.apk
-      - artifacts/SHA256.txt
-      - artifacts/SIGNER_SHA256.txt
-      - "_sonus_edit/**/app/build/test-results/**"
-      - "_sonus_edit/**/app/build/reports/**"
+    - artifacts/SonusEdit.apk
+    - artifacts/SHA256.txt
+    - artifacts/SIGNER_SHA256.txt
+    - _sonus_edit/**/app/build/test-results/**
+    - _sonus_edit/**/app/build/reports/**
