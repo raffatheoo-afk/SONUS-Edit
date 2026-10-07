@@ -124,6 +124,11 @@ workflows:
           grep -q 'manualWorkMs = currentManualWorkMs()' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
           grep -q 'resolvedRemoteIds' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
 
+          # build fix: Material Image icon is an extension property and must keep its Icons receiver.
+          grep -q 'import androidx.compose.material.icons.filled.Image' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
+          grep -q 'Icons.Default.Image' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
+          ! grep -q 'Image as ImageIcon' app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
+
           # Preserve code17 visual quality/export and code14 particle assets byte-for-byte.
           grep -q 'LanczosResample.scaleToFit' app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
           grep -q 'draft.exportFps in setOf(30, 60)' app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
