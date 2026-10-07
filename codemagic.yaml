@@ -1,6 +1,6 @@
 workflows:
   sonus-edit-0-0-3-code03-debug:
-    name: Sonus Edit 0.0.20 debug
+    name: Sonus Edit 0.0.21 debug
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -38,7 +38,7 @@ workflows:
           echo "SONUS_EDIT_PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
           echo "Projeto extraído em: $PROJECT_DIR"
 
-      - name: Validate Sonus Edit 0.0.20
+      - name: Validate Sonus Edit 0.0.21
         script: |
           set -euo pipefail
           cd "$SONUS_EDIT_PROJECT_DIR"
@@ -64,18 +64,18 @@ workflows:
             app/src/main/java/com/sonusstudios/sonusedit/media/ExportForegroundService.kt \
             app/src/main/assets/sonus_artist_genres.db \
             app/src/test/java/com/sonusstudios/sonusedit/create/Code20AspectRatioTest.kt \
-            CODE20_APPROVED_CHECKLIST.txt CODE20_IMPLEMENTATION.md; do
+            CODE21_APPROVED_SCOPE.txt CODE21_IMPLEMENTATION.md; do
             test -f "$f"
           done
 
           # Version/dependency contracts.
           grep -q 'applicationId = "com.sonusstudios.sonusedit"' app/build.gradle.kts
-          grep -q 'versionCode = 20' app/build.gradle.kts
-          grep -q 'versionName = "0.0.20"' app/build.gradle.kts
-          grep -q 'versionName=0.0.20' BUILD_VERSION.txt
-          grep -q 'versionCode=20' BUILD_VERSION.txt
-          grep -q 'Text("0.0.20"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Text("0.0.20"' "$FLOW"
+          grep -q 'versionCode = 21' app/build.gradle.kts
+          grep -q 'versionName = "0.0.21"' app/build.gradle.kts
+          grep -q 'versionName=0.0.21' BUILD_VERSION.txt
+          grep -q 'versionCode=21' BUILD_VERSION.txt
+          grep -q 'Text("0.0.21"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
+          grep -q 'Text("0.0.21"' "$FLOW"
           grep -q 'io.github.junkfood02.youtubedl-android:library:0.18.1' app/build.gradle.kts
           grep -q 'io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1' app/build.gradle.kts
           grep -q 'dev.ffmpegkit-maintained:whisper-android:1.0.0' app/build.gradle.kts
@@ -133,6 +133,9 @@ workflows:
           grep -q 'Partículas' "$FLOW"
           grep -q 'onParticlesEnabled' "$FLOW"
           grep -q '!draft.particlesEnabled' "$EXPORTER"
+          grep -q 'Presentation.createForAspectRatio' "$EXPORTER"
+          grep -q 'Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP' "$EXPORTER"
+          grep -q 'ProjectAspectRatios.isHorizontal(draft.aspectRatio)' "$EXPORTER"
           echo '0fe6dfc79f81795b288e333f5839359c7224558ee448b39b9f20476c2dcc86b9  app/src/main/res/raw/sonus_particles_green_60fps.mp4' | shasum -a 256 -c -
           echo '79fd098ff8d51c9b8db622f502792d1bf76cf6a54a7c3bd2afbae591fea525bc  app/src/main/res/raw/sonus_particles_black_30fps.mp4' | shasum -a 256 -c -
           grep -q 'greenDominance' "$KEY_SHADER"
@@ -158,9 +161,16 @@ workflows:
           grep -q 'textPaint.color = Color.BLACK' "$VISUAL"
 
           # Progressive gallery + faster pCloud cold path.
-          grep -q 'requestRaced("showpublink"' "$PCLOUD_CLIENT"
+          grep -q 'requestCatalogRaced("showpublink"' "$PCLOUD_CLIENT"
           grep -q 'ExecutorCompletionService' "$PCLOUD_CLIENT"
           grep -q 'preferredBase' "$PCLOUD_CLIENT"
+          grep -q 'publicFileUrl(body)' "$PCLOUD_CLIENT"
+          grep -q 'successfulRoot(response)' "$PCLOUD_CLIENT"
+          grep -q 'val urlResolveSemaphore = Semaphore(6)' "$CATALOG_REPO"
+          grep -q 'downloadUrlCache' "$CATALOG_REPO"
+          grep -q 'thumbnailUrlCache' "$CATALOG_REPO"
+          grep -q 'asset.stableKey, repo' "$FLOW"
+          grep -q 'downloadUrl != thumbnailUrl' "$FLOW"
           grep -q 'resolveJobs.joinAll()' "$FLOW"
           grep -q 'loadImageCatalog(ratio' "$FLOW"
 
@@ -199,7 +209,7 @@ workflows:
           grep -q 'Icons.Default.Image' "$FLOW"
           ! grep -q 'Image as ImageIcon' "$FLOW"
 
-          echo "Sonus Edit 0.0.20 / code20 static validation passed."
+          echo "Sonus Edit 0.0.21 / code21 static validation passed."
 
       - name: Restore persistent Sonus Edit signing
         script: |
