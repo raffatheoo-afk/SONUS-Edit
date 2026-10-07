@@ -1,6 +1,6 @@
 workflows:
   sonus-edit-0-0-3-code03-debug:
-    name: Sonus Edit 0.0.21 debug
+    name: Sonus Edit 0.0.22 debug
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -38,7 +38,7 @@ workflows:
           echo "SONUS_EDIT_PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
           echo "Projeto extraído em: $PROJECT_DIR"
 
-      - name: Validate Sonus Edit 0.0.21
+      - name: Validate Sonus Edit 0.0.22
         script: |
           set -euo pipefail
           cd "$SONUS_EDIT_PROJECT_DIR"
@@ -64,18 +64,19 @@ workflows:
             app/src/main/java/com/sonusstudios/sonusedit/media/ExportForegroundService.kt \
             app/src/main/assets/sonus_artist_genres.db \
             app/src/test/java/com/sonusstudios/sonusedit/create/Code20AspectRatioTest.kt \
-            CODE21_APPROVED_SCOPE.txt CODE21_IMPLEMENTATION.md; do
+            app/src/test/java/com/sonusstudios/sonusedit/create/Code22GallerySearchTest.kt \
+            CODE22_APPROVED_SCOPE.txt CODE22_IMPLEMENTATION.md; do
             test -f "$f"
           done
 
           # Version/dependency contracts.
           grep -q 'applicationId = "com.sonusstudios.sonusedit"' app/build.gradle.kts
-          grep -q 'versionCode = 21' app/build.gradle.kts
-          grep -q 'versionName = "0.0.21"' app/build.gradle.kts
-          grep -q 'versionName=0.0.21' BUILD_VERSION.txt
-          grep -q 'versionCode=21' BUILD_VERSION.txt
-          grep -q 'Text("0.0.21"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Text("0.0.21"' "$FLOW"
+          grep -q 'versionCode = 22' app/build.gradle.kts
+          grep -q 'versionName = "0.0.22"' app/build.gradle.kts
+          grep -q 'versionName=0.0.22' BUILD_VERSION.txt
+          grep -q 'versionCode=22' BUILD_VERSION.txt
+          grep -q 'Text("0.0.22"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
+          grep -q 'Text("0.0.22"' "$FLOW"
           grep -q 'io.github.junkfood02.youtubedl-android:library:0.18.1' app/build.gradle.kts
           grep -q 'io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1' app/build.gradle.kts
           grep -q 'dev.ffmpegkit-maintained:whisper-android:1.0.0' app/build.gradle.kts
@@ -153,8 +154,14 @@ workflows:
 
           # Whisper Base accuracy pipeline is preserved.
           grep -q 'MODEL_NAME = "ggml-base.bin"' "$WHISPER"
-          grep -q 'CHUNK_MS = 30_000L' "$WHISPER"
-          grep -q 'CHUNK_OVERLAP_MS = 1_500L' "$WHISPER"
+          grep -q 'ENGINE_VERSION = 4' "$WHISPER"
+          grep -q 'CHUNK_MS = 24_000L' "$WHISPER"
+          grep -q 'CHUNK_OVERLAP_MS = 3_000L' "$WHISPER"
+          grep -q 'transcribeChunk(model, wav, threads, "auto")' "$WHISPER"
+          grep -q 'transcribeChunk(model, wav, threads, "pt")' "$WHISPER"
+          grep -q 'shouldProbePortuguese' "$WHISPER"
+          grep -q 'preferPortuguese' "$WHISPER"
+          grep -q 'Normalizer.Form.NFD' "$WHISPER"
           grep -q 'deduplicateOverlap()' "$WHISPER"
           grep -q 'Whisper.releaseModel' "$WHISPER"
           grep -q 'Paint.Style.STROKE' "$VISUAL"
@@ -186,6 +193,17 @@ workflows:
           grep -q 'WHERE a.normalized_name = ?' "$ARTISTS"
           grep -q 'WHERE al.normalized_alias = ?' "$ARTISTS"
           grep -q 'categoryPolicy' "$SELECTOR"
+          grep -q 'searchManualGallery' "$SELECTOR"
+          grep -q 'strongTitleMatch' "$SELECTOR"
+          grep -q 'galleryVisibleImages' "$FLOW"
+          grep -q 'SmartImageSelector.searchManualGallery(imageCatalog, gallerySearch)' "$FLOW"
+          grep -q 'remote = galleryVisibleImages' "$FLOW"
+          grep -q 'lastGallerySearchRefreshKey' "$FLOW"
+          grep -q 'delay(350)' "$FLOW"
+          grep -q 'repo.refresh().filter' "$FLOW"
+          ! grep -q 'asset.name.lowercase().contains(normalized)' "$FLOW"
+          grep -q 'Nossa_Senhora_da_Aparecida_hora_01.png' app/src/test/java/com/sonusstudios/sonusedit/create/Code22GallerySearchTest.kt
+          grep -q 'Bar-de-Bairro 01.jpg' app/src/test/java/com/sonusstudios/sonusedit/create/Code22GallerySearchTest.kt
           python3 - <<'PY2'
           import sqlite3
           c=sqlite3.connect('app/src/main/assets/sonus_artist_genres.db')
@@ -209,7 +227,7 @@ workflows:
           grep -q 'Icons.Default.Image' "$FLOW"
           ! grep -q 'Image as ImageIcon' "$FLOW"
 
-          echo "Sonus Edit 0.0.21 / code21 static validation passed."
+          echo "Sonus Edit 0.0.22 / code22 static validation passed."
 
       - name: Restore persistent Sonus Edit signing
         script: |
