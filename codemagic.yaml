@@ -1,6 +1,6 @@
 workflows:
   sonus-edit-0-0-3-code03-debug:
-    name: Sonus Edit 0.0.22 debug
+    name: Sonus Edit 0.0.23 debug
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -38,7 +38,7 @@ workflows:
           echo "SONUS_EDIT_PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
           echo "Projeto extraído em: $PROJECT_DIR"
 
-      - name: Validate Sonus Edit 0.0.22
+      - name: Validate Sonus Edit 0.0.23
         script: |
           set -euo pipefail
           cd "$SONUS_EDIT_PROJECT_DIR"
@@ -50,184 +50,159 @@ workflows:
           CATALOG_REPO=app/src/main/java/com/sonusstudios/sonusedit/catalog/PCloudCatalogRepository.kt
           PCLOUD_CLIENT=app/src/main/java/com/sonusstudios/sonusedit/catalog/PCloudPublicCatalogClient.kt
           LINK=app/src/main/java/com/sonusstudios/sonusedit/create/LinkAudioImporter.kt
+          WHISPER=app/src/main/java/com/sonusstudios/sonusedit/create/WhisperCaptionEngine.kt
+          WAV=app/src/main/java/com/sonusstudios/sonusedit/create/AudioSegmentWavExtractor.kt
+          ROUTER=app/src/main/java/com/sonusstudios/sonusedit/integration/IncomingIntentRouter.kt
+          CONTRACT=app/src/main/java/com/sonusstudios/sonusedit/integration/SonusLinkContract.kt
+          APP=app/src/main/java/com/sonusstudios/sonusedit/ui/SonusEditApp.kt
           STATS=app/src/main/java/com/sonusstudios/sonusedit/stats/UsageStatsStore.kt
           STATS_UI=app/src/main/java/com/sonusstudios/sonusedit/ui/StatisticsScreen.kt
-          WHISPER=app/src/main/java/com/sonusstudios/sonusedit/create/WhisperCaptionEngine.kt
-          ARTISTS=app/src/main/java/com/sonusstudios/sonusedit/create/ArtistGenreResolver.kt
-          SELECTOR=app/src/main/java/com/sonusstudios/sonusedit/create/SmartImageSelector.kt
           KEY_SHADER=app/src/main/res/raw/sonus_video_key_fragment.glsl
 
-          for f in "$FLOW" "$MODELS" "$EXPORTER" "$VISUAL" "$CATALOG" "$CATALOG_REPO" "$PCLOUD_CLIENT" "$LINK" "$STATS" "$STATS_UI" "$WHISPER" "$ARTISTS" "$SELECTOR" "$KEY_SHADER" \
+          for f in "$FLOW" "$MODELS" "$EXPORTER" "$VISUAL" "$CATALOG" "$CATALOG_REPO" "$PCLOUD_CLIENT" "$LINK" "$WHISPER" "$WAV" "$ROUTER" "$CONTRACT" "$APP" "$STATS" "$STATS_UI" "$KEY_SHADER" \
             app/src/main/java/com/sonusstudios/sonusedit/create/VideoAudioSourceInspector.kt \
-            app/src/main/java/com/sonusstudios/sonusedit/create/AudioSegmentWavExtractor.kt \
             app/src/main/java/com/sonusstudios/sonusedit/create/CreationDraftStore.kt \
             app/src/main/java/com/sonusstudios/sonusedit/media/ExportForegroundService.kt \
-            app/src/main/assets/sonus_artist_genres.db \
             app/src/test/java/com/sonusstudios/sonusedit/create/Code20AspectRatioTest.kt \
             app/src/test/java/com/sonusstudios/sonusedit/create/Code22GallerySearchTest.kt \
-            CODE22_APPROVED_SCOPE.txt CODE22_IMPLEMENTATION.md; do
+            CODE23_APPROVED_SCOPE.txt CODE23_IMPLEMENTATION.md; do
             test -f "$f"
           done
 
-          # Version/dependency contracts.
+          # Version/dependency/signing contracts.
           grep -q 'applicationId = "com.sonusstudios.sonusedit"' app/build.gradle.kts
-          grep -q 'versionCode = 22' app/build.gradle.kts
-          grep -q 'versionName = "0.0.22"' app/build.gradle.kts
-          grep -q 'versionName=0.0.22' BUILD_VERSION.txt
-          grep -q 'versionCode=22' BUILD_VERSION.txt
-          grep -q 'Text("0.0.22"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Text("0.0.22"' "$FLOW"
+          grep -q 'versionCode = 23' app/build.gradle.kts
+          grep -q 'versionName = "0.0.23"' app/build.gradle.kts
+          grep -q 'versionName=0.0.23' BUILD_VERSION.txt
+          grep -q 'versionCode=23' BUILD_VERSION.txt
+          grep -q 'Text("0.0.23"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
+          grep -q 'Text("0.0.23"' "$FLOW"
           grep -q 'io.github.junkfood02.youtubedl-android:library:0.18.1' app/build.gradle.kts
           grep -q 'io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1' app/build.gradle.kts
           grep -q 'dev.ffmpegkit-maintained:whisper-android:1.0.0' app/build.gradle.kts
           test "$(grep -c 'androidx.media3:media3-.*:1.10.1' app/build.gradle.kts)" -eq 5
           grep -q 'android:extractNativeLibs="true"' app/src/main/AndroidManifest.xml
 
-          # Link first-attempt protection.
+          # Link stays on the proven code22 path.
           grep -q 'import com.yausername.ffmpeg.FFmpeg' "$LINK"
           grep -q 'FFmpeg.getInstance().init' "$LINK"
           grep -q 'repeat(2)' "$FLOW"
           grep -q 'linkImportJob?.isActive == true' "$FLOW"
           ! grep -q 'updateYoutubeDL' "$LINK"
 
-          # 9:16 default + 16:9 project contract and horizontal public gallery.
+          # SONUS -> Edit bridge: legacy + rich explicit contract.
+          grep -q 'data class SonusTrack' "$ROUTER"
+          grep -q 'EXTRA_AUDIO_URI' "$ROUTER"
+          grep -q 'EXTRA_CAPTIONS_JSON' "$ROUTER"
+          grep -q 'Intent.ACTION_SEND' "$ROUTER"
+          grep -q 'streamAssetMatches' "$FLOW"
+          grep -q 'ensureStreamCatalog(true)' "$FLOW"
+          grep -q 'parseIncomingCaptions' "$FLOW"
+          grep -q 'Carregando música compartilhada pelo SONUS' "$APP"
+          grep -q 'const val SONUS_PACKAGE = "com.sonusstudios.streampulse"' "$CONTRACT"
+
+          # Compact editing GPS; Home remains a separate screen.
+          grep -q 'private fun CreateHeader18' "$FLOW"
+          grep -q 'Icons.Default.MusicNote' "$FLOW"
+          grep -q 'Icons.Default.Image' "$FLOW"
+          grep -q 'Icons.Default.AutoAwesome' "$FLOW"
+          grep -q 'Icons.Default.FactCheck' "$FLOW"
+          grep -q 'Color(0xFF6F2027)' "$FLOW"
+          ! grep -q 'StepIndicator18' "$FLOW"
+
+          # Stream: artwork, shuffle and temporary search/list.
+          grep -q 'MusicArtwork18' "$FLOW"
+          grep -q 'Icons.Default.Shuffle' "$FLOW"
+          grep -q 'showStreamBrowser' "$FLOW"
+          grep -q 'Pesquisar música ou artista' "$FLOW"
+          grep -q 'chooseSpecificStream' "$FLOW"
+
+          # Gallery code23: no runtime artist DB, no automatic image marking, fixed controls + shuffled pool.
+          test ! -f app/src/main/assets/sonus_artist_genres.db
+          grep -q 'artistCategory = null' "$FLOW"
+          grep -q 'galleryShuffleNonce' "$FLOW"
+          grep -q 'SmartImageSelector.searchManualGallery(imageCatalog, gallerySearch)' "$FLOW"
+          grep -q 'Text("Imagens e vídeos"' "$FLOW"
+          grep -q 'Text("$totalSelected / $limit"' "$FLOW"
+          grep -q 'FOTOS/VÍDEOS' "$FLOW"
+          grep -q 'only the gallery scrolls' "$FLOW"
+          grep -q 'Color(0xFF287FA8)' "$FLOW"
+          python3 - <<'PY2'
+          from pathlib import Path
+          t=Path('app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt').read_text()
+          # New project selection starts empty; no automatic assignment should exist.
+          assert 'var selectedRemoteIds by remember(resumeDraft) { mutableStateOf(resumeDraft?.selectedRemoteIds.orEmpty()) }' in t
+          assert 'selectedRemoteIds = suggested' not in t
+          assert 'artistGenreResolver' not in t
+          PY2
+
+          # 9:16/16:9 contract remains intact.
           grep -q 'const val VERTICAL = "9:16"' "$MODELS"
           grep -q 'const val HORIZONTAL = "16:9"' "$MODELS"
           grep -q 'VIDEO_EXTRACTED' "$MODELS"
-          grep -q 'fun outputWidth(aspectRatio: String)' "$MODELS"
-          grep -q 'fun outputHeight(aspectRatio: String)' "$MODELS"
+          grep -q 'DurationPreset.INFINITE' "$FLOW"
           grep -q 'kZpRVYJZCVInrVg53M8t2JVi0nyFVjrg28ik' "$CATALOG"
           grep -q 'class PCloudHorizontalImageRepository' "$CATALOG_REPO"
-          grep -q 'cacheName = "images_horizontal"' "$CATALOG_REPO"
-          grep -q 'AspectRatioButton20' "$FLOW"
-          grep -q 'ProjectAspectRatios.HORIZONTAL' "$FLOW"
-          grep -q 'DurationPreset.INFINITE' "$FLOW"
-          grep -q '16:9 usa a duração completa' "$FLOW"
-
-          # Video -> audio source is audio-only and available from Music step.
-          grep -q 'EXTRAIR ÁUDIO DE VÍDEO' "$FLOW"
-          grep -q 'videoAudioPicker.launch' "$FLOW"
-          grep -q 'AudioSource.VIDEO_EXTRACTED' "$FLOW"
-          grep -q 'MediaExtractor' app/src/main/java/com/sonusstudios/sonusedit/create/VideoAudioSourceInspector.kt
-          grep -q 'startsWith("audio/")' app/src/main/java/com/sonusstudios/sonusedit/create/VideoAudioSourceInspector.kt
-          grep -q 'setRemoveVideo(true)' "$EXPORTER"
-
-          # Exact output mapping and dynamic canvas.
           grep -q 'draft.exportResolution.outputWidth(draft.aspectRatio)' "$EXPORTER"
           grep -q 'draft.exportResolution.outputHeight(draft.aspectRatio)' "$EXPORTER"
-          grep -q 'ExactOutputCompositorSettings' "$EXPORTER"
-          grep -q 'targetAspect' "$EXPORTER"
-          grep -q 'val base = minOf(canvas.width, canvas.height).toFloat()' "$VISUAL"
+
+          # Style/Review redesign.
+          grep -q 'onParticlesEnabled' "$FLOW"
+          grep -q 'private fun ReviewPreview23' "$FLOW"
+          grep -q 'Modifier.fillMaxWidth().height(58.dp)' "$FLOW"
+          grep -q 'player.seekTo(startMs + next)' "$FLOW"
+          grep -q 'captions.lastOrNull' "$FLOW"
           python3 - <<'PY2'
           from pathlib import Path
-          t=Path('app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt').read_text()
-          assert 'P720("720p", 720, 1280)' in t
-          assert 'P1080("1080p", 1080, 1920)' in t
-          assert 'P2K("2K", 1440, 2560)' in t
-          assert 'P4K("4K", 2160, 3840)' in t
-          assert 'if (ProjectAspectRatios.isHorizontal(aspectRatio)) height else width' in t
-          assert 'if (ProjectAspectRatios.isHorizontal(aspectRatio)) width else height' in t
+          t=Path('app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt').read_text()
+          review=t[t.index('private fun ReviewStep18('):t.index('private fun ReviewPreview23(')]
+          assert 'ReviewLine18(' not in review
+          assert 'particlesEnabled' not in review
           PY2
 
-          # Particles toggle + raw preservation.
-          grep -q 'particlesEnabled: Boolean = true' "$MODELS"
-          grep -q 'Partículas' "$FLOW"
-          grep -q 'onParticlesEnabled' "$FLOW"
+          # Long Whisper: sequential decode, incremental chunk cache, release model.
+          grep -q 'LONG_PROJECT_MS = 10L \* 60_000L' "$WHISPER"
+          grep -q 'LONG_CHUNK_MS = 45_000L' "$WHISPER"
+          grep -q 'extractSequentialChunks' "$WHISPER"
+          grep -q 'extractSequentialChunks' "$WAV"
+          grep -q 'Legenda longa • progresso salvo' "$WHISPER"
+          grep -q 'chunkCache.writeText' "$WHISPER"
+          grep -q 'Whisper.releaseModel' "$WHISPER"
+          grep -q 'MODEL_NAME = "ggml-base.bin"' "$WHISPER"
+          grep -q 'ENGINE_VERSION = 5' "$WHISPER"
+
+          # Long export: bounded chunks, retry only failed chunk, mux without second encode.
+          grep -q 'LONG_EXPORT_THRESHOLD_MS = 10L \* 60_000L' "$EXPORTER"
+          grep -q 'LONG_EXPORT_SEGMENT_MS = 4L \* 60_000L' "$EXPORTER"
+          grep -q 'startLongExport' "$EXPORTER"
+          grep -q 'buildLongSegmentDrafts' "$EXPORTER"
+          grep -q 'concatenateMp4' "$EXPORTER"
+          grep -q 'MediaMuxer' "$EXPORTER"
+          grep -q 'if (retry < 1)' "$EXPORTER"
+          grep -q 'Use a fresh extractor per track' "$EXPORTER"
+          grep -q 'visualDurationsMs' "$MODELS"
+          grep -q 'visualSourceOffsetsMs' "$MODELS"
+
+          # Particle assets and code21 horizontal crop remain unchanged.
           grep -q '!draft.particlesEnabled' "$EXPORTER"
-          grep -q 'Presentation.createForAspectRatio' "$EXPORTER"
           grep -q 'Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP' "$EXPORTER"
-          grep -q 'ProjectAspectRatios.isHorizontal(draft.aspectRatio)' "$EXPORTER"
           echo '0fe6dfc79f81795b288e333f5839359c7224558ee448b39b9f20476c2dcc86b9  app/src/main/res/raw/sonus_particles_green_60fps.mp4' | shasum -a 256 -c -
           echo '79fd098ff8d51c9b8db622f502792d1bf76cf6a54a7c3bd2afbae591fea525bc  app/src/main/res/raw/sonus_particles_black_30fps.mp4' | shasum -a 256 -c -
-          grep -q 'greenDominance' "$KEY_SHADER"
-          grep -q 'signalAlpha' "$KEY_SHADER"
           ! grep -R -q 'effect_particles_source.webp\|drawAnimatedEffect\|atlasFrames' app/src/main
 
-          # Compact caption status, advance protection and font-preview centering.
-          grep -q 'CaptionStatusPill20' "$FLOW"
-          grep -q 'AGUARDE... 🔴' "$FLOW"
-          grep -q '🟢 SINCRONIZADA' "$FLOW"
-          grep -q '🟡 ERRO' "$FLOW"
-          grep -q 'val captionPending = automation.automaticLyrics && !captionCompleted && captionError == null' "$FLOW"
-          grep -q 'CreateStep18.STYLE, CreateStep18.REVIEW -> !captionPending' "$FLOW"
-          grep -q 'verticalAlignment = Alignment.CenterVertically' "$FLOW"
-
-          # Whisper Base accuracy pipeline is preserved.
-          grep -q 'MODEL_NAME = "ggml-base.bin"' "$WHISPER"
-          grep -q 'ENGINE_VERSION = 4' "$WHISPER"
-          grep -q 'CHUNK_MS = 24_000L' "$WHISPER"
-          grep -q 'CHUNK_OVERLAP_MS = 3_000L' "$WHISPER"
-          grep -q 'transcribeChunk(model, wav, threads, "auto")' "$WHISPER"
-          grep -q 'transcribeChunk(model, wav, threads, "pt")' "$WHISPER"
-          grep -q 'shouldProbePortuguese' "$WHISPER"
-          grep -q 'preferPortuguese' "$WHISPER"
-          grep -q 'Normalizer.Form.NFD' "$WHISPER"
-          grep -q 'deduplicateOverlap()' "$WHISPER"
-          grep -q 'Whisper.releaseModel' "$WHISPER"
-          grep -q 'Paint.Style.STROKE' "$VISUAL"
-          grep -q 'textPaint.color = Color.BLACK' "$VISUAL"
-
-          # Progressive gallery + faster pCloud cold path.
-          grep -q 'requestCatalogRaced("showpublink"' "$PCLOUD_CLIENT"
-          grep -q 'ExecutorCompletionService' "$PCLOUD_CLIENT"
-          grep -q 'preferredBase' "$PCLOUD_CLIENT"
-          grep -q 'publicFileUrl(body)' "$PCLOUD_CLIENT"
-          grep -q 'successfulRoot(response)' "$PCLOUD_CLIENT"
-          grep -q 'val urlResolveSemaphore = Semaphore(6)' "$CATALOG_REPO"
-          grep -q 'downloadUrlCache' "$CATALOG_REPO"
-          grep -q 'thumbnailUrlCache' "$CATALOG_REPO"
-          grep -q 'asset.stableKey, repo' "$FLOW"
-          grep -q 'downloadUrl != thumbnailUrl' "$FLOW"
-          grep -q 'resolveJobs.joinAll()' "$FLOW"
-          grep -q 'loadImageCatalog(ratio' "$FLOW"
-
-          # Statistics reset and new source/aspect counters.
-          grep -q 'suspend fun clearAll()' "$STATS"
-          grep -q 'resetMarker' "$STATS"
-          grep -q 'videoAudioUses' "$STATS"
-          grep -q 'horizontalProjects' "$STATS"
-          grep -q 'Limpar dados de estatísticas' "$STATS_UI"
-          grep -q 'Apagar todas as estatísticas?' "$STATS_UI"
-
-          # Indexed artist database and conflict gate remain intact.
-          grep -q 'WHERE a.normalized_name = ?' "$ARTISTS"
-          grep -q 'WHERE al.normalized_alias = ?' "$ARTISTS"
-          grep -q 'categoryPolicy' "$SELECTOR"
-          grep -q 'searchManualGallery' "$SELECTOR"
-          grep -q 'strongTitleMatch' "$SELECTOR"
-          grep -q 'galleryVisibleImages' "$FLOW"
-          grep -q 'SmartImageSelector.searchManualGallery(imageCatalog, gallerySearch)' "$FLOW"
-          grep -q 'remote = galleryVisibleImages' "$FLOW"
-          grep -q 'lastGallerySearchRefreshKey' "$FLOW"
-          grep -q 'delay(350)' "$FLOW"
-          grep -q 'repo.refresh().filter' "$FLOW"
-          ! grep -q 'asset.name.lowercase().contains(normalized)' "$FLOW"
-          grep -q 'Nossa_Senhora_da_Aparecida_hora_01.png' app/src/test/java/com/sonusstudios/sonusedit/create/Code22GallerySearchTest.kt
-          grep -q 'Bar-de-Bairro 01.jpg' app/src/test/java/com/sonusstudios/sonusedit/create/Code22GallerySearchTest.kt
-          python3 - <<'PY2'
-          import sqlite3
-          c=sqlite3.connect('app/src/main/assets/sonus_artist_genres.db')
-          assert c.execute('select count(*) from artists').fetchone()[0] == 1924
-          assert c.execute('select count(*) from aliases').fetchone()[0] == 40
-          assert c.execute('select count(*) from genre_rules').fetchone()[0] == 24
-          assert c.execute("select category from artists where normalized_name='gustavo mioto'").fetchone()[0] == 'sertanejo'
-          c.close()
-          PY2
-
-          # Existing duration/FPS/media contracts remain.
+          # Existing safety contracts.
           grep -q 'DurationPreset(0, "∞", untilEnd = true)' "$MODELS"
           ! grep -q 'DurationPreset(90' "$MODELS"
           ! grep -q 'DurationPreset(120' "$MODELS"
           grep -q 'HARD_IMAGE_CAP = 50' "$MODELS"
           grep -q 'draft.exportFps in setOf(30, 60)' "$EXPORTER"
           grep -q 'LanczosResample.scaleToFit' "$EXPORTER"
-
-          # Buildfix1 Image icon receiver must remain correct.
+          grep -q 'Paint.Style.STROKE' "$VISUAL"
+          grep -q 'textPaint.color = Color.BLACK' "$VISUAL"
           grep -q 'import androidx.compose.material.icons.filled.Image' "$FLOW"
-          grep -q 'Icons.Default.Image' "$FLOW"
           ! grep -q 'Image as ImageIcon' "$FLOW"
 
-          echo "Sonus Edit 0.0.22 / code22 static validation passed."
+          echo "Sonus Edit 0.0.23 / code23 static validation passed."
 
       - name: Restore persistent Sonus Edit signing
         script: |
