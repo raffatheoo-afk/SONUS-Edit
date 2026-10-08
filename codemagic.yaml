@@ -90,6 +90,12 @@ workflows:
           grep -q 'linkImportJob?.isActive == true' "$FLOW"
           ! grep -q 'updateYoutubeDL' "$LINK"
 
+          # Kotlin 2.x nullability/type-inference regression guard (code23 build fix 1).
+          ! grep -q 'runCatching(Uri::parse)' "$ROUTER"
+          ! grep -q 'let(::loadMediaBitmap18)' "$FLOW"
+          grep -q 'runCatching { Uri.parse(raw) }' "$ROUTER"
+          grep -q 'loadMediaBitmap18(thumbnailUrl)' "$FLOW"
+
           # SONUS -> Edit bridge: legacy + rich explicit contract.
           grep -q 'data class SonusTrack' "$ROUTER"
           grep -q 'EXTRA_AUDIO_URI' "$ROUTER"
