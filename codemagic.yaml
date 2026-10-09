@@ -1,6 +1,6 @@
 workflows:
   sonus-edit-0-0-3-code03-debug:
-    name: Sonus Edit 1.0 debug
+    name: Sonus Edit 1.1 debug
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -38,7 +38,7 @@ workflows:
           echo "SONUS_EDIT_PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
           echo "Projeto extraído em: $PROJECT_DIR"
 
-      - name: Validate Sonus Edit 1.0
+      - name: Validate Sonus Edit 1.1
         script: |
           set -euo pipefail
           cd "$SONUS_EDIT_PROJECT_DIR"
@@ -71,12 +71,12 @@ workflows:
 
           # Version/dependency/signing contracts.
           grep -q 'applicationId = "com.sonusstudios.sonusedit"' app/build.gradle.kts
-          grep -q 'versionCode = 24' app/build.gradle.kts
-          grep -q 'versionName = "1.0"' app/build.gradle.kts
-          grep -q 'versionName=1.0' BUILD_VERSION.txt
-          grep -q 'versionCode=24' BUILD_VERSION.txt
-          grep -q 'Text("1.0"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Text("1.0"' "$FLOW"
+          grep -q 'versionCode = 25' app/build.gradle.kts
+          grep -q 'versionName = "1.1"' app/build.gradle.kts
+          grep -q 'versionName=1.1' BUILD_VERSION.txt
+          grep -q 'versionCode=25' BUILD_VERSION.txt
+          grep -q 'Text("1.1"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
+          grep -q 'Text("1.1"' "$FLOW"
           grep -q 'io.github.junkfood02.youtubedl-android:library:0.18.1' app/build.gradle.kts
           grep -q 'io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1' app/build.gradle.kts
           grep -q 'dev.ffmpegkit-maintained:whisper-android:1.0.0' app/build.gradle.kts
@@ -174,8 +174,8 @@ workflows:
           grep -q 'Legenda longa • progresso salvo' "$WHISPER"
           grep -q 'chunkCache.writeText' "$WHISPER"
           grep -q 'Whisper.releaseModel' "$WHISPER"
-          grep -q 'MODEL_NAME = "ggml-base.bin"' "$WHISPER"
-          grep -q 'ENGINE_VERSION = 5' "$WHISPER"
+          grep -q 'MODEL_NAME = "ggml-small.bin"' "$WHISPER"
+          grep -q 'ENGINE_VERSION = 11' "$WHISPER"
 
           # Long export: bounded chunks, retry only failed chunk, mux without second encode.
           grep -q 'LONG_EXPORT_THRESHOLD_MS = 10L \* 60_000L' "$EXPORTER"
@@ -209,10 +209,11 @@ workflows:
           ! grep -q 'Image as ImageIcon' "$FLOW"
 
           # Source guards for code24 UI, colors, project compatibility and original particle SHA256.
-          python3 scripts/validate_code24.py
+          python3 scripts/validate_code11.py
           test -f app/src/test/java/com/sonusstudios/sonusedit/create/Code24LyricPaletteTest.kt
+          test -f app/src/main/java/com/sonusstudios/sonusedit/media/PCloudEffectLibrary.kt
 
-          echo "Sonus Edit 1.0 / code24 static validation passed."
+          echo "Sonus Edit 1.1 / code25 static validation passed."
 
       - name: Restore persistent Sonus Edit signing
         script: |
