@@ -1,6 +1,6 @@
 workflows:
   sonus-edit-0-0-3-code03-debug:
-    name: Sonus Edit 1.3 debug
+    name: Sonus Edit 1.4 debug
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -38,7 +38,7 @@ workflows:
           echo "SONUS_EDIT_PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
           echo "Projeto extraído em: $PROJECT_DIR"
 
-      - name: Validate Sonus Edit 1.3
+      - name: Validate Sonus Edit 1.4
         script: |
           set -euo pipefail
           cd "$SONUS_EDIT_PROJECT_DIR"
@@ -71,12 +71,12 @@ workflows:
 
           # Version/dependency/signing contracts.
           grep -q 'applicationId = "com.sonusstudios.sonusedit"' app/build.gradle.kts
-          grep -q 'versionCode = 27' app/build.gradle.kts
-          grep -q 'versionName = "1.3"' app/build.gradle.kts
-          grep -q 'versionName=1.3' BUILD_VERSION.txt
-          grep -q 'versionCode=27' BUILD_VERSION.txt
-          grep -q 'Text("1.3"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Text("1.3"' "$FLOW"
+          grep -q 'versionCode = 28' app/build.gradle.kts
+          grep -q 'versionName = "1.4"' app/build.gradle.kts
+          grep -q 'versionName=1.4' BUILD_VERSION.txt
+          grep -q 'versionCode=28' BUILD_VERSION.txt
+          grep -q 'Text("1.4"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
+          grep -q 'Text("1.4"' "$FLOW"
           grep -q 'io.github.junkfood02.youtubedl-android:library:0.18.1' app/build.gradle.kts
           grep -q 'io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1' app/build.gradle.kts
           grep -q 'dev.ffmpegkit-maintained:whisper-android:1.0.0' app/build.gradle.kts
@@ -88,7 +88,12 @@ workflows:
           grep -q 'FFmpeg.getInstance().init' "$LINK"
           grep -q 'repeat(2)' "$FLOW"
           grep -q 'linkImportJob?.isActive == true' "$FLOW"
-          ! grep -q 'updateYoutubeDL' "$LINK"
+          grep -q 'updateYoutubeDL' "$LINK"
+          grep -q 'UpdateChannel.STABLE' "$LINK"
+          grep -q 'ExportRecoveryPolicy14.shouldRetryInChunks' "$EXPORTER"
+          grep -q 'setMaxDelayBetweenMuxerSamplesMs' "$EXPORTER"
+          grep -q 'CaptionEtaEstimator14' "$FLOW"
+          grep -q 'ENGINE_VERSION = 14' "$WHISPER"
 
           # Kotlin 2.x nullability/type-inference regression guard (code23 build fix 1).
           ! grep -q 'runCatching(Uri::parse)' "$ROUTER"
@@ -175,7 +180,7 @@ workflows:
           grep -q 'chunkCache.writeText' "$WHISPER"
           grep -q 'Whisper.releaseModel' "$WHISPER"
           grep -q 'MODEL_NAME = "ggml-small.bin"' "$WHISPER"
-          grep -q 'ENGINE_VERSION = 11' "$WHISPER"
+          grep -q 'ENGINE_VERSION = 14' "$WHISPER"
 
           # Long export: bounded chunks, retry only failed chunk, mux without second encode.
           grep -q 'LONG_EXPORT_THRESHOLD_MS = 10L \* 60_000L' "$EXPORTER"
@@ -211,11 +216,11 @@ workflows:
           # Source guards for code24 UI, colors, project compatibility and original particle SHA256.
           test -f app/src/main/java/com/sonusstudios/sonusedit/create/CaptionEtaEstimator13.kt
           test -f app/src/test/java/com/sonusstudios/sonusedit/create/Code27CaptionEtaTest.kt
-          python3 scripts/validate_v1_3_code27.py
+          python3 scripts/validate_v1_4_code28.py
           test -f app/src/test/java/com/sonusstudios/sonusedit/create/Code24LyricPaletteTest.kt
           test -f app/src/main/java/com/sonusstudios/sonusedit/media/PCloudEffectLibrary.kt
 
-          echo "Sonus Edit 1.3 / code27 static validation passed."
+          echo "Sonus Edit 1.4 / code28 static validation passed."
 
       - name: Restore persistent Sonus Edit signing
         script: |
