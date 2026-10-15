@@ -1,6 +1,6 @@
 workflows:
   sonus-edit-0-0-3-code03-debug:
-    name: Sonus Edit 1.4 debug
+    name: Sonus Edit 1.5 debug
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -38,7 +38,7 @@ workflows:
           echo "SONUS_EDIT_PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
           echo "Projeto extraído em: $PROJECT_DIR"
 
-      - name: Validate Sonus Edit 1.4
+      - name: Validate Sonus Edit 1.5
         script: |
           set -euo pipefail
           cd "$SONUS_EDIT_PROJECT_DIR"
@@ -71,12 +71,12 @@ workflows:
 
           # Version/dependency/signing contracts.
           grep -q 'applicationId = "com.sonusstudios.sonusedit"' app/build.gradle.kts
-          grep -q 'versionCode = 28' app/build.gradle.kts
-          grep -q 'versionName = "1.4"' app/build.gradle.kts
-          grep -q 'versionName=1.4' BUILD_VERSION.txt
-          grep -q 'versionCode=28' BUILD_VERSION.txt
-          grep -q 'Text("1.4"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Text("1.4"' "$FLOW"
+          grep -q 'versionCode = 29' app/build.gradle.kts
+          grep -q 'versionName = "1.5"' app/build.gradle.kts
+          grep -q 'versionName=1.5' BUILD_VERSION.txt
+          grep -q 'versionCode=29' BUILD_VERSION.txt
+          grep -q 'Text("1.5"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
+          grep -q 'Text("1.5"' "$FLOW"
           grep -q 'io.github.junkfood02.youtubedl-android:library:0.18.1' app/build.gradle.kts
           grep -q 'io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1' app/build.gradle.kts
           grep -q 'dev.ffmpegkit-maintained:whisper-android:1.0.0' app/build.gradle.kts
@@ -194,10 +194,10 @@ workflows:
           grep -q 'visualDurationsMs' "$MODELS"
           grep -q 'visualSourceOffsetsMs' "$MODELS"
 
-          # Particle assets and code21 horizontal crop remain unchanged.
+          # Particle assets: black MP4 unchanged; green 60fps MP4 re-encoded (H.264 High, same 1080x1920/60fps/961 frames) to fit the 25 MB GitHub limit. Code21 horizontal crop remains unchanged.
           grep -q '!draft.particlesEnabled' "$EXPORTER"
           grep -q 'Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP' "$EXPORTER"
-          echo '0fe6dfc79f81795b288e333f5839359c7224558ee448b39b9f20476c2dcc86b9  app/src/main/res/raw/sonus_particles_green_60fps.mp4' | shasum -a 256 -c -
+          echo 'f92090af17ebd5b4c9f47ab05b09587e9b9b17f7bc698fae80703084c1d4ca69  app/src/main/res/raw/sonus_particles_green_60fps.mp4' | shasum -a 256 -c -
           echo '79fd098ff8d51c9b8db622f502792d1bf76cf6a54a7c3bd2afbae591fea525bc  app/src/main/res/raw/sonus_particles_black_30fps.mp4' | shasum -a 256 -c -
           ! grep -R -q 'effect_particles_source.webp\|drawAnimatedEffect\|atlasFrames' app/src/main
 
@@ -216,11 +216,11 @@ workflows:
           # Source guards for code24 UI, colors, project compatibility and original particle SHA256.
           test -f app/src/main/java/com/sonusstudios/sonusedit/create/CaptionEtaEstimator13.kt
           test -f app/src/test/java/com/sonusstudios/sonusedit/create/Code27CaptionEtaTest.kt
-          python3 scripts/validate_v1_4_code28.py
+          python3 scripts/validate_v1_5_code29.py
           test -f app/src/test/java/com/sonusstudios/sonusedit/create/Code24LyricPaletteTest.kt
           test -f app/src/main/java/com/sonusstudios/sonusedit/media/PCloudEffectLibrary.kt
 
-          echo "Sonus Edit 1.4 / code28 static validation passed."
+          echo "Sonus Edit 1.5 / code29 static validation passed."
 
       - name: Restore persistent Sonus Edit signing
         script: |
