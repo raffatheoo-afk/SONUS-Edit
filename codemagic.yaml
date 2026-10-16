@@ -1,6 +1,6 @@
 workflows:
   sonus-edit-0-0-3-code03-debug:
-    name: Sonus Edit 1.5 debug
+    name: Sonus Edit 1.6 debug
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -38,7 +38,7 @@ workflows:
           echo "SONUS_EDIT_PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
           echo "Projeto extraído em: $PROJECT_DIR"
 
-      - name: Validate Sonus Edit 1.5
+      - name: Validate Sonus Edit 1.6
         script: |
           set -euo pipefail
           cd "$SONUS_EDIT_PROJECT_DIR"
@@ -65,18 +65,19 @@ workflows:
             app/src/main/java/com/sonusstudios/sonusedit/media/ExportForegroundService.kt \
             app/src/test/java/com/sonusstudios/sonusedit/create/Code20AspectRatioTest.kt \
             app/src/test/java/com/sonusstudios/sonusedit/create/Code22GallerySearchTest.kt \
+            app/src/test/java/com/sonusstudios/sonusedit/create/Code30CaptionFontPoolTest.kt \
             CODE23_APPROVED_SCOPE.txt CODE23_IMPLEMENTATION.md; do
             test -f "$f"
           done
 
           # Version/dependency/signing contracts.
           grep -q 'applicationId = "com.sonusstudios.sonusedit"' app/build.gradle.kts
-          grep -q 'versionCode = 29' app/build.gradle.kts
-          grep -q 'versionName = "1.5"' app/build.gradle.kts
-          grep -q 'versionName=1.5' BUILD_VERSION.txt
-          grep -q 'versionCode=29' BUILD_VERSION.txt
-          grep -q 'Text("1.5"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Text("1.5"' "$FLOW"
+          grep -q 'versionCode = 30' app/build.gradle.kts
+          grep -q 'versionName = "1.6"' app/build.gradle.kts
+          grep -q 'versionName=1.6' BUILD_VERSION.txt
+          grep -q 'versionCode=30' BUILD_VERSION.txt
+          grep -q 'Text("1.6"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
+          grep -q 'Text("1.6"' "$FLOW"
           grep -q 'io.github.junkfood02.youtubedl-android:library:0.18.1' app/build.gradle.kts
           grep -q 'io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1' app/build.gradle.kts
           grep -q 'dev.ffmpegkit-maintained:whisper-android:1.0.0' app/build.gradle.kts
@@ -216,11 +217,11 @@ workflows:
           # Source guards for code24 UI, colors, project compatibility and original particle SHA256.
           test -f app/src/main/java/com/sonusstudios/sonusedit/create/CaptionEtaEstimator13.kt
           test -f app/src/test/java/com/sonusstudios/sonusedit/create/Code27CaptionEtaTest.kt
-          python3 scripts/validate_v1_5_code29.py
+          python3 scripts/validate_v1_6_code30.py
           test -f app/src/test/java/com/sonusstudios/sonusedit/create/Code24LyricPaletteTest.kt
           test -f app/src/main/java/com/sonusstudios/sonusedit/media/PCloudEffectLibrary.kt
 
-          echo "Sonus Edit 1.5 / code29 static validation passed."
+          echo "Sonus Edit 1.6 / code30 static validation passed."
 
       - name: Restore persistent Sonus Edit signing
         script: |
