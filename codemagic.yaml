@@ -1,6 +1,6 @@
 workflows:
   sonus-edit-0-0-3-code03-debug:
-    name: Sonus Edit 1.7 debug
+    name: Sonus Edit 0.0.1 debug
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -12,7 +12,6 @@ workflows:
       cache_paths:
         - $HOME/.gradle/caches
         - $HOME/.gradle/codemagic
-        - $HOME/.sonus-edit-signing
     scripts:
       - name: Prepare Sonus Edit package
         script: |
@@ -38,7 +37,7 @@ workflows:
           echo "SONUS_EDIT_PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
           echo "Projeto extraído em: $PROJECT_DIR"
 
-      - name: Validate Sonus Edit 1.7
+      - name: Validate Sonus Edit 0.0.1
         script: |
           set -euo pipefail
           cd "$SONUS_EDIT_PROJECT_DIR"
@@ -75,12 +74,12 @@ workflows:
 
           # Version/dependency/signing contracts.
           grep -q 'applicationId = "com.sonusstudios.sonusedit"' app/build.gradle.kts
-          grep -q 'versionCode = 31' app/build.gradle.kts
-          grep -q 'versionName = "1.7"' app/build.gradle.kts
-          grep -q 'versionName=1.7' BUILD_VERSION.txt
-          grep -q 'versionCode=31' BUILD_VERSION.txt
-          grep -q 'Text("1.7"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Text("1.7"' "$FLOW"
+          grep -q 'versionCode = 1' app/build.gradle.kts
+          grep -q 'versionName = "0.0.1"' app/build.gradle.kts
+          grep -q 'versionName=0.0.1' BUILD_VERSION.txt
+          grep -q 'versionCode=1' BUILD_VERSION.txt
+          grep -q 'Text("0.0.1"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
+          grep -q 'Text("0.0.1"' "$FLOW"
           grep -q 'io.github.junkfood02.youtubedl-android:library:0.18.1' app/build.gradle.kts
           grep -q 'io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1' app/build.gradle.kts
           grep -q 'dev.ffmpegkit-maintained:whisper-android:1.0.0' app/build.gradle.kts
@@ -220,41 +219,37 @@ workflows:
           # Source guards for code24 UI, colors, project compatibility and original particle SHA256.
           test -f app/src/main/java/com/sonusstudios/sonusedit/create/CaptionEtaEstimator13.kt
           test -f app/src/test/java/com/sonusstudios/sonusedit/create/Code27CaptionEtaTest.kt
-          python3 scripts/validate_v1_7_code31.py
+          python3 scripts/validate_v0_0_1_code01.py
           test -f app/src/test/java/com/sonusstudios/sonusedit/create/Code24LyricPaletteTest.kt
           test -f app/src/main/java/com/sonusstudios/sonusedit/media/PCloudEffectLibrary.kt
 
-          echo "Sonus Edit 1.7 / code31 static validation passed."
+          echo "Sonus Edit 0.0.1 / code01 static validation passed."
 
       - name: Restore persistent Sonus Edit signing
         script: |
           set -euo pipefail
-          cd "$SONUS_EDIT_PROJECT_DIR"
-          if [ -n "${SONUS_KEYSTORE_PATH:-}" ] && [ -n "${SONUS_KEYSTORE_PASSWORD:-}" ] && \
-             [ -n "${SONUS_KEY_ALIAS:-}" ] && [ -n "${SONUS_KEY_PASSWORD:-}" ]; then
-            test -f "$SONUS_KEYSTORE_PATH"
-            echo "Using secure persistent Sonus Edit signer."
-            exit 0
-          fi
-          SIGN_DIR="$HOME/.sonus-edit-signing"
+          # Permanent Sonus Edit signing key, created for version 0.0.1 / code01.
+          # It lives in this file on purpose: nothing depends on the Codemagic cache any more,
+          # so the APK signature cannot change by accident. Keep a private backup of this key.
+          SIGN_DIR="$HOME/.sonus-edit-signing-v1"
           KEYSTORE="$SIGN_DIR/sonus-edit-dev.jks"
-          PROPS="$SIGN_DIR/signing.env"
-          if [ ! -f "$KEYSTORE" ] || [ ! -f "$PROPS" ]; then
-            echo "ERROR: persistent Sonus Edit signing key was not restored."
-            echo "Build stopped intentionally to prevent a different APK signature."
-            exit 41
-          fi
-          chmod 600 "$PROPS" "$KEYSTORE"
-          . "$PROPS"
-          : "${SONUS_KEYSTORE_PASSWORD:?missing persistent store password}"
-          : "${SONUS_KEY_ALIAS:?missing persistent key alias}"
-          : "${SONUS_KEY_PASSWORD:?missing persistent key password}"
+          mkdir -p "$SIGN_DIR" "$CM_BUILD_DIR/artifacts"
+          python3 - "$KEYSTORE" <<'PY'
+          import base64, sys
+          data = "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"
+          open(sys.argv[1], "wb").write(base64.b64decode(data))
+          PY
+          SONUS_KEYSTORE_PASSWORD='U7M6CFm6CA453sVu1VtvRIypdYFW'
+          SONUS_KEY_ALIAS='sonusedit'
+          SONUS_KEY_PASSWORD='U7M6CFm6CA453sVu1VtvRIypdYFW'
+          chmod 600 "$KEYSTORE"
           keytool -list -keystore "$KEYSTORE" -storepass "$SONUS_KEYSTORE_PASSWORD" -alias "$SONUS_KEY_ALIAS" >/dev/null
+          keytool -list -v -keystore "$KEYSTORE" -storepass "$SONUS_KEYSTORE_PASSWORD" -alias "$SONUS_KEY_ALIAS" | sed -n '/SHA256:/p' | tee "$CM_BUILD_DIR/artifacts/KEY_SHA256.txt"
           echo "SONUS_KEYSTORE_PATH=$KEYSTORE" >> "$CM_ENV"
           echo "SONUS_KEYSTORE_PASSWORD=$SONUS_KEYSTORE_PASSWORD" >> "$CM_ENV"
           echo "SONUS_KEY_ALIAS=$SONUS_KEY_ALIAS" >> "$CM_ENV"
           echo "SONUS_KEY_PASSWORD=$SONUS_KEY_PASSWORD" >> "$CM_ENV"
-          echo "Reusing persistent Sonus Edit signer."
+          echo "Using the permanent Sonus Edit signer."
 
       - name: Install Gradle 8.13
         script: |
@@ -296,5 +291,6 @@ workflows:
       - artifacts/SonusEdit.apk
       - artifacts/SHA256.txt
       - artifacts/SIGNER_SHA256.txt
+      - artifacts/KEY_SHA256.txt
       - _sonus_edit/**/app/build/test-results/**
       - _sonus_edit/**/app/build/reports/**
