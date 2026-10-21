@@ -160,8 +160,8 @@ workflows:
           grep -q 'DurationPreset.INFINITE' "$FLOW"
           grep -q 'kZpRVYJZCVInrVg53M8t2JVi0nyFVjrg28ik' "$CATALOG"
           grep -q 'class PCloudHorizontalImageRepository' "$CATALOG_REPO"
-          grep -q 'draft.exportResolution.outputWidth(draft.aspectRatio)' "$EXPORTER"
-          grep -q 'draft.exportResolution.outputHeight(draft.aspectRatio)' "$EXPORTER"
+          grep -q 'draft.outputWidth()' "$EXPORTER"
+          grep -q 'draft.outputHeight()' "$EXPORTER"
 
           # Style/Review redesign.
           grep -q 'onParticlesEnabled' "$FLOW"
