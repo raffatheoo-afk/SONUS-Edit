@@ -178,7 +178,7 @@ workflows:
           # Style/Review redesign.
           grep -q 'onParticlesEnabled' "$FLOW"
           grep -q 'private fun ReviewPreview23' "$FLOW"
-          grep -q 'Modifier.fillMaxWidth().height(58.dp)' "$FLOW"
+          grep -q 'modifier.height(58.dp)' "$FLOW"
           grep -q 'player.seekTo(startMs + next)' "$FLOW"
           grep -q 'captions.lastOrNull' "$FLOW"
           python3 - <<'PY2'
