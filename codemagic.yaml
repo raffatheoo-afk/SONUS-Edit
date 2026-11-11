@@ -1,6 +1,6 @@
 workflows:
   sonus-edit-0-0-3-code03-debug:
-    name: Sonus Edit 0.0.4 debug
+    name: Sonus Edit 0.0.5 debug
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -37,7 +37,7 @@ workflows:
           echo "SONUS_EDIT_PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
           echo "Projeto extraído em: $PROJECT_DIR"
 
-      - name: Validate Sonus Edit 0.0.4
+      - name: Validate Sonus Edit 0.0.5
         script: |
           set -euo pipefail
           cd "$SONUS_EDIT_PROJECT_DIR"
@@ -89,12 +89,12 @@ workflows:
 
           # Version/dependency/signing contracts.
           grep -q 'applicationId = "com.sonusstudios.sonusedit"' app/build.gradle.kts
-          grep -q 'versionCode = 4' app/build.gradle.kts
-          grep -q 'versionName = "0.0.4"' app/build.gradle.kts
-          grep -q 'versionName=0.0.4' BUILD_VERSION.txt
-          grep -q 'versionCode=4' BUILD_VERSION.txt
-          grep -q 'Text("0.0.4"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Text("0.0.4"' "$FLOW"
+          grep -q 'versionCode = 5' app/build.gradle.kts
+          grep -q 'versionName = "0.0.5"' app/build.gradle.kts
+          grep -q 'versionName=0.0.5' BUILD_VERSION.txt
+          grep -q 'versionCode=5' BUILD_VERSION.txt
+          grep -q 'Text("0.0.5"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
+          grep -q 'Text("0.0.5"' "$FLOW"
           grep -q 'io.github.junkfood02.youtubedl-android:library:0.18.1' app/build.gradle.kts
           grep -q 'io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1' app/build.gradle.kts
           grep -q 'dev.ffmpegkit-maintained:whisper-android:1.0.0' app/build.gradle.kts
@@ -238,7 +238,7 @@ workflows:
           grep -q 'galleryMediaExt18 = imageExt18 + videoExt18' "$FLOW"
           grep -q 'loadRemoteAssetThumbnail18' "$FLOW"
           grep -q 'searchManualGallery' app/src/main/java/com/sonusstudios/sonusedit/create/SmartImageSelector.kt
-          grep -q 'PROJECTS_TO_BLOCK = 4' app/src/main/java/com/sonusstudios/sonusedit/create/SmartImageSelector.kt
+          grep -q 'PROJECTS_TO_BLOCK = 15' app/src/main/java/com/sonusstudios/sonusedit/create/SmartImageSelector.kt
           grep -q 'onCaptionEdit' app/src/main/java/com/sonusstudios/sonusedit/ui/AutoCaptionsScreen.kt
           grep -q 'onCaptionEdit' "$FLOW"
           grep -q 'Sonus Edit Premium' app/src/main/java/com/sonusstudios/sonusedit/ui/PremiumPlansScreen.kt || grep -q 'SONUS EDIT PREMIUM' app/src/main/java/com/sonusstudios/sonusedit/ui/PremiumPlansScreen.kt
@@ -249,11 +249,11 @@ workflows:
           test -f app/src/main/java/com/sonusstudios/sonusedit/create/CaptionEtaEstimator13.kt
           test -f app/src/test/java/com/sonusstudios/sonusedit/create/Code27CaptionEtaTest.kt
           # Includes low-memory Gallery, audio-playback and review-screen maintenance guards.
-          python3 scripts/validate_v0_0_4_code04.py
+          python3 scripts/validate_v0_0_5_code05.py
           test -f app/src/test/java/com/sonusstudios/sonusedit/create/Code24LyricPaletteTest.kt
           test -f app/src/main/java/com/sonusstudios/sonusedit/media/PCloudEffectLibrary.kt
 
-          echo "Sonus Edit 0.0.4 / code04 static validation passed."
+          echo "Sonus Edit 0.0.5 / code05 static validation passed."
 
       - name: Restore persistent Sonus Edit signing
         script: |
