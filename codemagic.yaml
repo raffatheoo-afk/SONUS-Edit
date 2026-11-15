@@ -96,9 +96,11 @@ workflows:
           set -euo pipefail
           echo "=== SONUS 0.0.7 / code 07 ==="
           sha256() { if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | awk '{print $1}'; else sha256sum "$1" | awk '{print $1}'; fi; }
-          SRC_ZIP="$CM_BUILD_DIR/StreamPulse.zip"
-          if [ ! -f "$SRC_ZIP" ] && [ -f "$CM_BUILD_DIR/StreamPulse_0.0.7_CODE07.zip" ]; then
-            SRC_ZIP="$CM_BUILD_DIR/StreamPulse_0.0.7_CODE07.zip"
+          # Prioridade absoluta ao pacote versionado CODE07.
+          # O nome genérico StreamPulse.zip pode ser um artefato antigo (CODE06).
+          SRC_ZIP="$CM_BUILD_DIR/StreamPulse_0.0.7_CODE07.zip"
+          if [ ! -f "$SRC_ZIP" ]; then
+            SRC_ZIP="$CM_BUILD_DIR/StreamPulse.zip"
           fi
           WORK_DIR="$CM_BUILD_DIR/_sonus_0_0_7"
           PROJECT_DIR=""
@@ -123,6 +125,17 @@ workflows:
 
           APP_GRADLE="$PROJECT_DIR/app/build.gradle.kts"
           MANIFEST="$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+          [ -f "$APP_GRADLE" ] || { echo "ERRO: app/build.gradle.kts não encontrado."; exit 1; }
+          grep -Eq '^[[:space:]]*versionCode = 7[[:space:]]*$' "$APP_GRADLE" || {
+            echo "ERRO: o pacote selecionado NÃO é CODE07 (versionCode 7)."
+            echo "Envie StreamPulse_0.0.7_CODE07.zip para a raiz do repositório e remova/substitua o ZIP antigo."
+            exit 1
+          }
+          grep -Fq 'versionName = "0.0.7"' "$APP_GRADLE" || {
+            echo "ERRO: o pacote selecionado não declara versionName 0.0.7."
+            exit 1
+          }
+          echo "Fonte confirmada: SONUS 0.0.7 / CODE07 (versionCode 7)."
           J="$PROJECT_DIR/app/src/main/java/com/sonusstudios/streampulse"
           RES="$PROJECT_DIR/app/src/main/res"
           fail() { echo "ERRO: $1"; exit 1; }
