@@ -36,8 +36,8 @@
 #     o que faltar. Build 0.0.7: validar o Stream renovado e as preferências de atualização antes de publicar.
 # ════════════════════════════════════════════════════════════════════════════════════════════
 workflows:
-  sonus-0-0-7-code07:
-    name: SONUS 0.0.7 code 07 - APK
+  sonus-code07-only-20261115:
+    name: SONUS CODE07 EXCLUSIVO - 0.0.7 (versionCode 7)
     instance_type: mac_mini_m2
     max_build_duration: 120
 
@@ -96,30 +96,25 @@ workflows:
           set -euo pipefail
           echo "=== SONUS 0.0.7 / code 07 ==="
           sha256() { if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | awk '{print $1}'; else sha256sum "$1" | awk '{print $1}'; fi; }
-          # Prioridade absoluta ao pacote versionado CODE07.
-          # O nome genérico StreamPulse.zip pode ser um artefato antigo (CODE06).
+          # CODE07 EXCLUSIVO: não aceitar ZIP genérico, checkout da raiz ou qualquer fallback.
+          # Isso impede que um StreamPulse.zip antigo (CODE06) seja compilado por engano.
           SRC_ZIP="$CM_BUILD_DIR/StreamPulse_0.0.7_CODE07.zip"
           if [ ! -f "$SRC_ZIP" ]; then
-            SRC_ZIP="$CM_BUILD_DIR/StreamPulse.zip"
-          fi
-          WORK_DIR="$CM_BUILD_DIR/_sonus_0_0_7"
-          PROJECT_DIR=""
-          if [ -f "$SRC_ZIP" ]; then
-            rm -rf "$WORK_DIR"
-            mkdir -p "$WORK_DIR"
-            unzip -q -o "$SRC_ZIP" -d "$WORK_DIR"
-            SETTINGS_FILE="$(find "$WORK_DIR" -maxdepth 5 -name settings.gradle.kts -print -quit)"
-            [ -n "$SETTINGS_FILE" ] || { echo "ERRO: settings.gradle.kts não foi encontrado dentro de StreamPulse.zip."; exit 1; }
-            PROJECT_DIR="$(dirname "$SETTINGS_FILE")"
-          elif [ -f "$CM_BUILD_DIR/settings.gradle.kts" ] && [ -f "$CM_BUILD_DIR/app/build.gradle.kts" ]; then
-            PROJECT_DIR="$CM_BUILD_DIR"
-          elif [ -f "$CM_BUILD_DIR/sonus_work/settings.gradle.kts" ] && [ -f "$CM_BUILD_DIR/sonus_work/app/build.gradle.kts" ]; then
-            PROJECT_DIR="$CM_BUILD_DIR/sonus_work"
-          else
-            echo "ERRO: não encontrei StreamPulse.zip nem um checkout SONUS extraído na raiz do repositório."
+            echo "ERRO: falta StreamPulse_0.0.7_CODE07.zip na raiz do repositório."
+            echo "O workflow foi bloqueado para não compilar uma versão antiga por engano."
+            echo "Arquivos encontrados na raiz:"
             ls -la "$CM_BUILD_DIR"
             exit 1
           fi
+          WORK_DIR="$CM_BUILD_DIR/_sonus_0_0_7"
+          rm -rf "$WORK_DIR"
+          mkdir -p "$WORK_DIR"
+          echo "Pacote selecionado: $SRC_ZIP"
+          echo "SHA-256 do pacote: $(sha256 "$SRC_ZIP")"
+          unzip -q -o "$SRC_ZIP" -d "$WORK_DIR"
+          SETTINGS_FILE="$(find "$WORK_DIR" -maxdepth 5 -name settings.gradle.kts -print -quit)"
+          [ -n "$SETTINGS_FILE" ] || { echo "ERRO: settings.gradle.kts não foi encontrado dentro do ZIP CODE07."; exit 1; }
+          PROJECT_DIR="$(dirname "$SETTINGS_FILE")"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
           echo "Projeto localizado em: $PROJECT_DIR"
 
@@ -135,7 +130,8 @@ workflows:
             echo "ERRO: o pacote selecionado não declara versionName 0.0.7."
             exit 1
           }
-          echo "Fonte confirmada: SONUS 0.0.7 / CODE07 (versionCode 7)."
+          echo "FONTE CONFIRMADA: SONUS 0.0.7 / CODE07 (versionCode 7)."
+          echo "IDENTIFICADOR DO WORKFLOW: sonus-code07-only-20261115"
           J="$PROJECT_DIR/app/src/main/java/com/sonusstudios/streampulse"
           RES="$PROJECT_DIR/app/src/main/res"
           fail() { echo "ERRO: $1"; exit 1; }
