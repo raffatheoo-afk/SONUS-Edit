@@ -1,0 +1,332 @@
+workflows:
+  sonus-edit-0-0-3-code03-debug:
+    name: Sonus Edit 1.0.1 debug
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    environment:
+      android_signing:
+        - sonus-edit-persistent
+      vars:
+        CM_CLONE_DEPTH: 1
+        CM_CLONE_UNSHALLOW: 'false'
+      java: 17
+    cache:
+      cache_paths:
+        - $HOME/.gradle/caches
+        - $HOME/.gradle/codemagic
+    scripts:
+      - name: Prepare Sonus Edit package
+        script: |
+          set -euo pipefail
+          PROJECT_DIR="$CM_BUILD_DIR/SonusEdit"
+          if [ ! -f "$PROJECT_DIR/settings.gradle.kts" ]; then
+            EXTRACT_ROOT="$CM_BUILD_DIR/_sonus_edit"
+            rm -rf "$EXTRACT_ROOT"
+            mkdir -p "$EXTRACT_ROOT"
+            ZIP=""
+            for candidate in "$CM_BUILD_DIR/SonusEdit.zip" "$CM_BUILD_DIR/Sonus Edit.zip" "$CM_BUILD_DIR/Sonus%20Edit.zip"; do
+              if [ -f "$candidate" ]; then ZIP="$candidate"; break; fi
+            done
+            if [ -z "$ZIP" ]; then
+              echo "ERROR: SonusEdit/ project folder or legacy SonusEdit.zip not found in repository root."
+              find "$CM_BUILD_DIR" -maxdepth 1 -type f -print
+              exit 21
+            fi
+            unzip -q "$ZIP" -d "$EXTRACT_ROOT"
+            SETTINGS="$(find "$EXTRACT_ROOT" -maxdepth 3 -type f -name settings.gradle.kts | head -n 1)"
+            test -n "$SETTINGS"
+            PROJECT_DIR="$(dirname "$SETTINGS")"
+          fi
+          test -f "$PROJECT_DIR/settings.gradle.kts"
+          test -f "$PROJECT_DIR/app/build.gradle.kts"
+          test -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+          echo "SONUS_EDIT_PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
+          echo "Projeto preparado em: $PROJECT_DIR"
+
+      - name: Validate Sonus Edit 1.0.1
+        script: |
+          set -euo pipefail
+          cd "$SONUS_EDIT_PROJECT_DIR"
+          FLOW=app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
+          MODELS=app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
+          EXPORTER=app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
+          VISUAL=app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
+          CATALOG=app/src/main/java/com/sonusstudios/sonusedit/catalog/PCloudCatalog.kt
+          CATALOG_REPO=app/src/main/java/com/sonusstudios/sonusedit/catalog/PCloudCatalogRepository.kt
+          PCLOUD_CLIENT=app/src/main/java/com/sonusstudios/sonusedit/catalog/PCloudPublicCatalogClient.kt
+          LINK=app/src/main/java/com/sonusstudios/sonusedit/create/LinkAudioImporter.kt
+          WHISPER=app/src/main/java/com/sonusstudios/sonusedit/create/WhisperCaptionEngine.kt
+          WAV=app/src/main/java/com/sonusstudios/sonusedit/create/AudioSegmentWavExtractor.kt
+          ROUTER=app/src/main/java/com/sonusstudios/sonusedit/integration/IncomingIntentRouter.kt
+          CONTRACT=app/src/main/java/com/sonusstudios/sonusedit/integration/SonusLinkContract.kt
+          APP=app/src/main/java/com/sonusstudios/sonusedit/ui/SonusEditApp.kt
+          STATS=app/src/main/java/com/sonusstudios/sonusedit/stats/UsageStatsStore.kt
+          STATS_UI=app/src/main/java/com/sonusstudios/sonusedit/ui/StatisticsScreen.kt
+          KEY_SHADER=app/src/main/res/raw/sonus_video_key_fragment.glsl
+
+          for f in "$FLOW" "$MODELS" "$EXPORTER" "$VISUAL" "$CATALOG" "$CATALOG_REPO" "$PCLOUD_CLIENT" "$LINK" "$WHISPER" "$WAV" "$ROUTER" "$CONTRACT" "$APP" "$STATS" "$STATS_UI" "$KEY_SHADER" \
+            app/src/main/java/com/sonusstudios/sonusedit/create/VideoAudioSourceInspector.kt \
+            app/src/main/java/com/sonusstudios/sonusedit/create/CreationDraftStore.kt \
+            app/src/main/java/com/sonusstudios/sonusedit/media/ExportForegroundService.kt \
+            app/src/test/java/com/sonusstudios/sonusedit/create/Code20AspectRatioTest.kt \
+            app/src/test/java/com/sonusstudios/sonusedit/create/Code22GallerySearchTest.kt \
+            app/src/test/java/com/sonusstudios/sonusedit/create/Code30CaptionFontPoolTest.kt \
+            app/src/test/java/com/sonusstudios/sonusedit/create/Code31CaptionStylesTest.kt \
+            app/src/test/java/com/sonusstudios/sonusedit/create/Code07CaptionPositionTest.kt \
+            app/src/test/java/com/sonusstudios/sonusedit/create/Code02ExportAndRatiosTest.kt \
+            app/src/test/java/com/sonusstudios/sonusedit/create/Code03ImageCooldownTest.kt \
+            app/src/test/java/com/sonusstudios/sonusedit/create/Code03CaptionLanguageHintTest.kt \
+            app/src/main/java/com/sonusstudios/sonusedit/media/ExportCapabilities02.kt \
+            app/src/main/java/com/sonusstudios/sonusedit/ui/CaptionAdjustSliders.kt \
+            app/src/main/java/com/sonusstudios/sonusedit/ui/AutoCaptionsScreen.kt \
+            app/src/main/java/com/sonusstudios/sonusedit/media/CaptionStyleRenderer.kt \
+            app/src/main/java/com/sonusstudios/sonusedit/catalog/GallerySearchRotation.kt \
+            app/src/test/java/com/sonusstudios/sonusedit/catalog/GallerySearchRotationTest.kt \
+            app/src/test/java/com/sonusstudios/sonusedit/create/Code24LyricPaletteTest.kt \
+            app/src/test/java/com/sonusstudios/sonusedit/create/Code29FontAndImageRotationTest.kt \
+            app/src/test/java/com/sonusstudios/sonusedit/create/AutomationPlannerTest.kt \
+            scripts/validate_v1_0_1_code11.py \
+            CODE23_APPROVED_SCOPE.txt CODE23_IMPLEMENTATION.md; do
+            test -f "$f"
+          done
+
+          # code04 regression guards: bounded trim preview, per-export caption toggle and selection review.
+          grep -q 'TrimPreviewPlanner04.shouldStop' "$FLOW"
+          grep -q 'memoryExhausted' app/src/main/java/com/sonusstudios/sonusedit/media/ExportCapabilities02.kt
+          grep -q 'TrimPreviewPlanner04.endPreviewPosition' "$FLOW"
+          grep -q 'captionsEnabledForVideo' app/src/main/java/com/sonusstudios/sonusedit/create/CreationDraftStore.kt
+          grep -q 'Mídias selecionadas' "$FLOW"
+          grep -q 'BUSCANDO' "$FLOW"
+          test -f app/src/main/java/com/sonusstudios/sonusedit/create/TrimPreviewPlanner04.kt
+          test -f app/src/test/java/com/sonusstudios/sonusedit/create/Code04TrimPreviewTest.kt
+
+          # Version/dependency/signing contracts.
+          grep -q 'applicationId = "com.sonusstudios.sonusedit"' app/build.gradle.kts
+          grep -q 'versionCode = 11' app/build.gradle.kts
+          grep -q 'versionName = "1.0.1"' app/build.gradle.kts
+          grep -q 'versionName=1.0.1' BUILD_VERSION.txt
+          grep -q 'versionCode=11' BUILD_VERSION.txt
+          grep -q 'Text("1.0.1"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
+          grep -q 'Text("1.0.1"' "$FLOW"
+          grep -q 'io.github.junkfood02.youtubedl-android:library:0.18.1' app/build.gradle.kts
+          grep -q 'io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1' app/build.gradle.kts
+          grep -q 'dev.ffmpegkit-maintained:whisper-android:1.0.0' app/build.gradle.kts
+          test "$(grep -c 'androidx.media3:media3-.*:1.10.1' app/build.gradle.kts)" -eq 5
+          grep -q 'android:extractNativeLibs="true"' app/src/main/AndroidManifest.xml
+
+          # Link stays on the proven code22 path.
+          grep -q 'import com.yausername.ffmpeg.FFmpeg' "$LINK"
+          grep -q 'FFmpeg.getInstance().init' "$LINK"
+          grep -q 'repeat(2)' "$FLOW"
+          grep -q 'linkImportJob?.isActive == true' "$FLOW"
+          grep -q 'updateYoutubeDL' "$LINK"
+          grep -q 'UpdateChannel.STABLE' "$LINK"
+          grep -q 'ExportRecoveryPolicy14.shouldRetryInChunks' "$EXPORTER"
+          grep -q 'setMaxDelayBetweenMuxerSamplesMs' "$EXPORTER"
+          grep -q 'CaptionEtaEstimator14' "$FLOW"
+          grep -q 'ENGINE_VERSION = 16' "$WHISPER"
+
+          # Kotlin 2.x nullability/type-inference regression guard (code23 build fix 1).
+          ! grep -q 'runCatching(Uri::parse)' "$ROUTER"
+          ! grep -q 'let(::loadMediaBitmap18)' "$FLOW"
+          grep -q 'runCatching { Uri.parse(raw) }' "$ROUTER"
+          grep -q 'loadRemoteAssetThumbnail18' "$FLOW"
+
+          # SONUS -> Edit bridge: legacy + rich explicit contract.
+          grep -q 'data class SonusTrack' "$ROUTER"
+          grep -q 'EXTRA_AUDIO_URI' "$ROUTER"
+          grep -q 'EXTRA_CAPTIONS_JSON' "$ROUTER"
+          grep -q 'Intent.ACTION_SEND' "$ROUTER"
+          grep -q 'streamAssetMatches' "$FLOW"
+          grep -q 'ensureStreamCatalog(true)' "$FLOW"
+          grep -q 'parseIncomingCaptions' "$FLOW"
+          grep -q 'Carregando música compartilhada pelo SONUS' "$APP"
+          grep -q 'const val SONUS_PACKAGE = "com.sonusstudios.streampulse"' "$CONTRACT"
+
+          # Compact editing GPS; Home remains a separate screen.
+          grep -q 'private fun CreateHeader18' "$FLOW"
+          grep -q 'Icons.Default.MusicNote' "$FLOW"
+          grep -q 'Icons.Default.Image' "$FLOW"
+          grep -q 'Icons.Default.AutoAwesome' "$FLOW"
+          grep -q 'Icons.Default.FactCheck' "$FLOW"
+          grep -q 'Color(0xFF6F2027)' "$FLOW"
+          ! grep -q 'StepIndicator18' "$FLOW"
+
+          # Stream: artwork, shuffle and temporary search/list.
+          grep -q 'MusicArtwork18' "$FLOW"
+          grep -q 'Icons.Default.Shuffle' "$FLOW"
+          grep -q 'showStreamBrowser' "$FLOW"
+          grep -q 'Pesquisar música ou artista' "$FLOW"
+          grep -q 'chooseSpecificStream' "$FLOW"
+
+          # Gallery code23: no runtime artist DB, no automatic image marking, fixed controls + shuffled pool.
+          test ! -f app/src/main/assets/sonus_artist_genres.db
+          grep -q 'artistCategory = null' "$FLOW"
+          grep -q 'galleryShuffleNonce' "$FLOW"
+          grep -q 'SmartImageSelector.searchManualGallery' "$FLOW"
+          grep -q 'Text("Imagens e vídeos"' "$FLOW"
+          grep -q 'Text("$totalSelected / $limit"' "$FLOW"
+          grep -q 'FOTOS/VÍDEOS' "$FLOW"
+          grep -q 'only the gallery scrolls' "$FLOW"
+          grep -q 'Color(0xFF287FA8)' "$FLOW"
+          python3 - <<'PY2'
+          from pathlib import Path
+          t=Path('app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt').read_text()
+          # New project selection starts empty; no automatic assignment should exist.
+          assert 'var selectedRemoteIds by remember(resumeDraft) { mutableStateOf(resumeDraft?.selectedRemoteIds.orEmpty()) }' in t
+          assert 'selectedRemoteIds = suggested' not in t
+          assert 'artistGenreResolver' not in t
+          PY2
+
+          # 9:16/16:9 contract remains intact.
+          grep -q 'const val VERTICAL = "9:16"' "$MODELS"
+          grep -q 'const val HORIZONTAL = "16:9"' "$MODELS"
+          grep -q 'VIDEO_EXTRACTED' "$MODELS"
+          grep -q 'DurationPreset.INFINITE' "$FLOW"
+          grep -q 'kZpRVYJZCVInrVg53M8t2JVi0nyFVjrg28ik' "$CATALOG"
+          grep -q 'class PCloudHorizontalImageRepository' "$CATALOG_REPO"
+          grep -q 'draft.outputWidth()' "$EXPORTER"
+          grep -q 'draft.outputHeight()' "$EXPORTER"
+
+          # Style/Review redesign.
+          grep -q 'onParticlesEnabled' "$FLOW"
+          grep -q 'private fun ReviewPreview23' "$FLOW"
+          grep -q 'modifier.height(58.dp)' "$FLOW"
+          grep -q 'player.seekTo(startMs + next)' "$FLOW"
+          grep -q 'captions.lastOrNull' "$FLOW"
+          python3 - <<'PY2'
+          from pathlib import Path
+          t=Path('app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt').read_text()
+          review=t[t.index('private fun ReviewStep18('):t.index('private fun ReviewPreview23(')]
+          assert 'ReviewLine18(' not in review
+          assert 'particlesEnabled' not in review
+          PY2
+
+          # Long Whisper: sequential decode, incremental chunk cache, release model.
+          grep -q 'LONG_PROJECT_MS = 10L \* 60_000L' "$WHISPER"
+          grep -q 'LONG_CHUNK_MS = 45_000L' "$WHISPER"
+          grep -q 'extractSequentialChunks' "$WHISPER"
+          grep -q 'extractSequentialChunks' "$WAV"
+          grep -q 'Legenda longa • progresso salvo' "$WHISPER"
+          grep -q 'chunkCache.writeText' "$WHISPER"
+          grep -q 'Whisper.releaseModel' "$WHISPER"
+          grep -q 'MODEL_NAME = "ggml-small.bin"' "$WHISPER"
+          grep -q 'ENGINE_VERSION = 16' "$WHISPER"
+
+          # Long export: bounded chunks, retry only failed chunk, mux without second encode.
+          grep -q 'LONG_EXPORT_THRESHOLD_MS = 10L \* 60_000L' "$EXPORTER"
+          grep -q 'LONG_EXPORT_SEGMENT_MS = 4L \* 60_000L' "$EXPORTER"
+          grep -q 'startLongExport' "$EXPORTER"
+          grep -q 'buildLongSegmentDrafts' "$EXPORTER"
+          grep -q 'concatenateMp4' "$EXPORTER"
+          grep -q 'MediaMuxer' "$EXPORTER"
+          grep -q 'if (retry < 1)' "$EXPORTER"
+          grep -q 'Use a fresh extractor per track' "$EXPORTER"
+          grep -q 'visualDurationsMs' "$MODELS"
+          grep -q 'visualSourceOffsetsMs' "$MODELS"
+
+          # Particle assets: black MP4 unchanged; green 60fps MP4 re-encoded (H.264 High, same 1080x1920/60fps/961 frames) to fit the 25 MB GitHub limit. Code21 horizontal crop remains unchanged.
+          grep -q '!draft.particlesEnabled' "$EXPORTER"
+          grep -q 'Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP' "$EXPORTER"
+          echo 'f92090af17ebd5b4c9f47ab05b09587e9b9b17f7bc698fae80703084c1d4ca69  app/src/main/res/raw/sonus_particles_green_60fps.mp4' | shasum -a 256 -c -
+          echo '79fd098ff8d51c9b8db622f502792d1bf76cf6a54a7c3bd2afbae591fea525bc  app/src/main/res/raw/sonus_particles_black_30fps.mp4' | shasum -a 256 -c -
+          ! grep -R -q 'effect_particles_source.webp\|drawAnimatedEffect\|atlasFrames' app/src/main
+
+          # Existing safety contracts.
+          grep -q 'DurationPreset(0, "∞", untilEnd = true)' "$MODELS"
+          ! grep -q 'DurationPreset(90' "$MODELS"
+          ! grep -q 'DurationPreset(120' "$MODELS"
+          grep -q 'HARD_IMAGE_CAP = 50' "$MODELS"
+          grep -q 'draft.exportFps in setOf(30, 60)' "$EXPORTER"
+          grep -q 'LanczosResample.scaleToFit' "$EXPORTER"
+          grep -q 'Paint.Style.STROKE' "$VISUAL"
+          grep -q 'Color.WHITE else Color.BLACK' "$VISUAL"
+          grep -q 'import androidx.compose.material.icons.filled.Image' "$FLOW"
+          ! grep -q 'Image as ImageIcon' "$FLOW"
+
+          # Code03: multi-folder Gallery, media video thumbnails, cooldown, caption correction, premium and logo.
+          grep -q 'MUSIC_PUBLIC_CODE_TERTIARY' "$CATALOG"
+          grep -q 'IMAGE_PUBLIC_CODE_TERTIARY' "$CATALOG"
+          grep -q 'IMAGE_HORIZONTAL_PUBLIC_CODE_SECONDARY' "$CATALOG"
+          grep -q 'galleryMediaExt18 = imageExt18 + videoExt18' "$FLOW"
+          grep -q 'loadRemoteAssetThumbnail18' "$FLOW"
+          grep -q 'searchManualGallery' app/src/main/java/com/sonusstudios/sonusedit/create/SmartImageSelector.kt
+          grep -q 'VERTICAL_PROJECTS_TO_BLOCK = 20' app/src/main/java/com/sonusstudios/sonusedit/create/SmartImageSelector.kt
+          grep -q 'HORIZONTAL_PROJECTS_TO_BLOCK = 15' app/src/main/java/com/sonusstudios/sonusedit/create/SmartImageSelector.kt
+          grep -q 'onCaptionEdit' app/src/main/java/com/sonusstudios/sonusedit/ui/AutoCaptionsScreen.kt
+          grep -q 'onCaptionEdit' "$FLOW"
+          grep -q 'Sonus Edit Premium' app/src/main/java/com/sonusstudios/sonusedit/ui/PremiumPlansScreen.kt || grep -q 'SONUS EDIT PREMIUM' app/src/main/java/com/sonusstudios/sonusedit/ui/PremiumPlansScreen.kt
+          test -f app/src/main/res/drawable-nodpi/sonus_edit_icon_foreground.png
+          test -f app/src/main/res/drawable-nodpi/sonus_edit_logo_center.png
+
+          # Source guards for code24 UI, colors, project compatibility and original particle SHA256.
+          test -f app/src/main/java/com/sonusstudios/sonusedit/create/CaptionEtaEstimator13.kt
+          test -f app/src/test/java/com/sonusstudios/sonusedit/create/Code27CaptionEtaTest.kt
+          # Includes low-memory Gallery, audio-playback and review-screen maintenance guards.
+          python3 scripts/validate_v1_0_1_code11.py
+          test -f app/src/test/java/com/sonusstudios/sonusedit/create/Code24LyricPaletteTest.kt
+          test -f app/src/main/java/com/sonusstudios/sonusedit/media/PCloudEffectLibrary.kt
+
+          echo "Sonus Edit 1.0.1 / code11 static validation passed."
+
+      - name: Restore persistent Sonus Edit signing
+        script: |
+          set -euo pipefail
+          # The original CODE03 keystore is supplied by Codemagic Code Signing Identities.
+          : "${CM_KEYSTORE_PATH:?Upload the original Sonus Edit keystore as sonus-edit-persistent in Codemagic Code signing identities}"
+          : "${CM_KEYSTORE_PASSWORD:?Codemagic did not provide the keystore password}"
+          : "${CM_KEY_ALIAS:?Codemagic did not provide the key alias}"
+          : "${CM_KEY_PASSWORD:?Codemagic did not provide the key password}"
+          test -s "$CM_KEYSTORE_PATH"
+          mkdir -p "$CM_BUILD_DIR/artifacts"
+          keytool -list -keystore "$CM_KEYSTORE_PATH" -storepass "$CM_KEYSTORE_PASSWORD" -alias "$CM_KEY_ALIAS" >/dev/null
+          keytool -list -v -keystore "$CM_KEYSTORE_PATH" -storepass "$CM_KEYSTORE_PASSWORD" -alias "$CM_KEY_ALIAS" | sed -n '/SHA256:/p' | tee "$CM_BUILD_DIR/artifacts/KEY_SHA256.txt"
+          echo "SONUS_KEYSTORE_PATH=$CM_KEYSTORE_PATH" >> "$CM_ENV"
+          echo "SONUS_KEYSTORE_PASSWORD=$CM_KEYSTORE_PASSWORD" >> "$CM_ENV"
+          echo "SONUS_KEY_ALIAS=$CM_KEY_ALIAS" >> "$CM_ENV"
+          echo "SONUS_KEY_PASSWORD=$CM_KEY_PASSWORD" >> "$CM_ENV"
+          echo "Using the original persistent Sonus Edit signing identity from Codemagic."
+
+      - name: Install Gradle 8.13
+        script: |
+          set -euo pipefail
+          GRADLE_VERSION=8.13
+          GRADLE_HOME_CM="$HOME/.gradle/codemagic/gradle-$GRADLE_VERSION"
+          if [ ! -x "$GRADLE_HOME_CM/bin/gradle" ]; then
+            mkdir -p "$HOME/.gradle/codemagic"
+            curl --fail --location --retry 3 "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" -o "/tmp/gradle-${GRADLE_VERSION}.zip"
+            unzip -q "/tmp/gradle-${GRADLE_VERSION}.zip" -d "$HOME/.gradle/codemagic"
+          fi
+          echo "GRADLE_CM=$GRADLE_HOME_CM/bin/gradle" >> "$CM_ENV"
+          "$GRADLE_HOME_CM/bin/gradle" --version
+
+      - name: Compile debug Kotlin
+        script: |
+          set -euo pipefail
+          cd "$SONUS_EDIT_PROJECT_DIR"
+          "$GRADLE_CM" --no-daemon --stacktrace :app:compileDebugKotlin
+
+      - name: Unit tests
+        script: |
+          set -euo pipefail
+          cd "$SONUS_EDIT_PROJECT_DIR"
+          "$GRADLE_CM" --no-daemon --stacktrace :app:testDebugUnitTest
+
+      - name: Build debug APK
+        script: |
+          set -euo pipefail
+          cd "$SONUS_EDIT_PROJECT_DIR"
+          "$GRADLE_CM" --no-daemon --stacktrace :app:assembleDebug
+          APK="$(find app/build/outputs/apk/debug -maxdepth 1 -name '*.apk' -type f | head -n 1)"
+          test -n "$APK"
+          mkdir -p "$CM_BUILD_DIR/artifacts"
+          cp "$APK" "$CM_BUILD_DIR/artifacts/SonusEdit.apk"
+          keytool -printcert -jarfile "$CM_BUILD_DIR/artifacts/SonusEdit.apk" | sed -n '/SHA256:/p' > "$CM_BUILD_DIR/artifacts/SIGNER_SHA256.txt" || true
+          shasum -a 256 "$CM_BUILD_DIR/artifacts/SonusEdit.apk" | tee "$CM_BUILD_DIR/artifacts/SHA256.txt"
+    artifacts:
+      - artifacts/SonusEdit.apk
+      - artifacts/SHA256.txt
+      - artifacts/SIGNER_SHA256.txt
+      - artifacts/KEY_SHA256.txt
+      - _sonus_edit/**/app/build/test-results/**
+      - _sonus_edit/**/app/build/reports/**
