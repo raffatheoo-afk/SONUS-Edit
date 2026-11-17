@@ -4,6 +4,8 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
+      android_signing:
+        - sonus-edit-persistent
       vars:
         CM_CLONE_DEPTH: 1
         CM_CLONE_UNSHALLOW: 'false'
@@ -270,27 +272,20 @@ workflows:
       - name: Restore persistent Sonus Edit signing
         script: |
           set -euo pipefail
-          : "${SONUS_KEYSTORE_BASE64:?Configure SONUS_KEYSTORE_BASE64 in Codemagic secure environment variables}"
-          : "${SONUS_KEYSTORE_PASSWORD:?Configure SONUS_KEYSTORE_PASSWORD in Codemagic secure environment variables}"
-          : "${SONUS_KEY_ALIAS:?Configure SONUS_KEY_ALIAS in Codemagic secure environment variables}"
-          : "${SONUS_KEY_PASSWORD:?Configure SONUS_KEY_PASSWORD in Codemagic secure environment variables}"
-          SIGN_DIR="$HOME/.sonus-edit-signing-v1"
-          KEYSTORE="$SIGN_DIR/sonus-edit-dev.jks"
-          mkdir -p "$SIGN_DIR" "$CM_BUILD_DIR/artifacts"
-          python3 - "$KEYSTORE" <<'PY'
-          import base64, os, sys
-          data = os.environ["SONUS_KEYSTORE_BASE64"]
-          with open(sys.argv[1], "wb") as output:
-              output.write(base64.b64decode(data, validate=True))
-          PY
-          chmod 600 "$KEYSTORE"
-          keytool -list -keystore "$KEYSTORE" -storepass "$SONUS_KEYSTORE_PASSWORD" -alias "$SONUS_KEY_ALIAS" >/dev/null
-          keytool -list -v -keystore "$KEYSTORE" -storepass "$SONUS_KEYSTORE_PASSWORD" -alias "$SONUS_KEY_ALIAS" | sed -n '/SHA256:/p' | tee "$CM_BUILD_DIR/artifacts/KEY_SHA256.txt"
-          echo "SONUS_KEYSTORE_PATH=$KEYSTORE" >> "$CM_ENV"
-          echo "SONUS_KEYSTORE_PASSWORD=$SONUS_KEYSTORE_PASSWORD" >> "$CM_ENV"
-          echo "SONUS_KEY_ALIAS=$SONUS_KEY_ALIAS" >> "$CM_ENV"
-          echo "SONUS_KEY_PASSWORD=$SONUS_KEY_PASSWORD" >> "$CM_ENV"
-          echo "Using the persistent Sonus Edit signer from Codemagic secure variables."
+          # The original CODE03 keystore is supplied by Codemagic Code Signing Identities.
+          : "${CM_KEYSTORE_PATH:?Upload the original Sonus Edit keystore as sonus-edit-persistent in Codemagic Code signing identities}"
+          : "${CM_KEYSTORE_PASSWORD:?Codemagic did not provide the keystore password}"
+          : "${CM_KEY_ALIAS:?Codemagic did not provide the key alias}"
+          : "${CM_KEY_PASSWORD:?Codemagic did not provide the key password}"
+          test -s "$CM_KEYSTORE_PATH"
+          mkdir -p "$CM_BUILD_DIR/artifacts"
+          keytool -list -keystore "$CM_KEYSTORE_PATH" -storepass "$CM_KEYSTORE_PASSWORD" -alias "$CM_KEY_ALIAS" >/dev/null
+          keytool -list -v -keystore "$CM_KEYSTORE_PATH" -storepass "$CM_KEYSTORE_PASSWORD" -alias "$CM_KEY_ALIAS" | sed -n '/SHA256:/p' | tee "$CM_BUILD_DIR/artifacts/KEY_SHA256.txt"
+          echo "SONUS_KEYSTORE_PATH=$CM_KEYSTORE_PATH" >> "$CM_ENV"
+          echo "SONUS_KEYSTORE_PASSWORD=$CM_KEYSTORE_PASSWORD" >> "$CM_ENV"
+          echo "SONUS_KEY_ALIAS=$CM_KEY_ALIAS" >> "$CM_ENV"
+          echo "SONUS_KEY_PASSWORD=$CM_KEY_PASSWORD" >> "$CM_ENV"
+          echo "Using the original persistent Sonus Edit signing identity from Codemagic."
 
       - name: Install Gradle 8.13
         script: |
