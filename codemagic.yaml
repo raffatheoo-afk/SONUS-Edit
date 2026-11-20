@@ -202,9 +202,17 @@ workflows:
           python3 - <<'PY2'
           from pathlib import Path
           t=Path('app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt').read_text()
-          review=t[t.index('private fun ReviewStep18('):t.index('private fun ReviewPreview23(')]
+          review_start=t.index('private fun ReviewStep18(')
+          review=t[review_start:t.index('private fun ReviewPreview23(')]
+          before_review=t[:review_start]
+          # CODE12 intentionally moves Particles into Review and Captions into Style/Sync.
           assert 'ReviewLine18(' not in review
-          assert 'particlesEnabled' not in review
+          assert 'particlesEnabled' in review
+          assert 'onParticlesEnabled' in review
+          assert 'Partículas neste vídeo' in review
+          assert 'Legendas neste vídeo' not in review
+          assert 'Legendas neste vídeo' in before_review
+          assert 'onCaptionsEnabled' in before_review
           PY2
 
           # Long Whisper: sequential decode, incremental chunk cache, release model.
