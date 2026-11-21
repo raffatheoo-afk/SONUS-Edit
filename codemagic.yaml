@@ -16,24 +16,36 @@ workflows:
       - name: Prepare Sonus Edit package
         script: |
           set -euo pipefail
-          PROJECT_DIR="$CM_BUILD_DIR/SonusEdit"
-          if [ ! -f "$PROJECT_DIR/settings.gradle.kts" ]; then
-            EXTRACT_ROOT="$CM_BUILD_DIR/_sonus_edit"
+          # Prefer the packaged ZIP when present. This prevents a stale SonusEdit/ checkout
+          # from silently overriding a newer package uploaded to the repository.
+          EXTRACT_ROOT="$CM_BUILD_DIR/_sonus_edit_current"
+          PROJECT_DIR=""
+          ZIP=""
+          for candidate in "$CM_BUILD_DIR/SonusEdit.zip" "$CM_BUILD_DIR/SonusEdit_1.0.4_CODE14_VALIDATION_FIX2.zip" "$CM_BUILD_DIR/Sonus Edit.zip" "$CM_BUILD_DIR/Sonus%20Edit.zip"; do
+            if [ -f "$candidate" ]; then ZIP="$candidate"; break; fi
+          done
+          if [ -z "$ZIP" ]; then
+            ZIP="$(find "$CM_BUILD_DIR" -maxdepth 1 -type f -iname 'SonusEdit*.zip' -print | sort | tail -n 1)"
+          fi
+          if [ -n "$ZIP" ]; then
+            echo "Usando pacote ZIP: $ZIP"
             rm -rf "$EXTRACT_ROOT"
             mkdir -p "$EXTRACT_ROOT"
-            ZIP=""
-            for candidate in "$CM_BUILD_DIR/SonusEdit.zip" "$CM_BUILD_DIR/Sonus Edit.zip" "$CM_BUILD_DIR/Sonus%20Edit.zip"; do
-              if [ -f "$candidate" ]; then ZIP="$candidate"; break; fi
-            done
-            if [ -z "$ZIP" ]; then
-              echo "ERROR: SonusEdit/ project folder or legacy SonusEdit.zip not found in repository root."
-              find "$CM_BUILD_DIR" -maxdepth 1 -type f -print
-              exit 21
-            fi
             unzip -q "$ZIP" -d "$EXTRACT_ROOT"
             SETTINGS="$(find "$EXTRACT_ROOT" -maxdepth 3 -type f -name settings.gradle.kts | head -n 1)"
-            test -n "$SETTINGS"
+            if [ -z "$SETTINGS" ]; then
+              echo "ERROR: O ZIP selecionado não contém settings.gradle.kts na raiz esperada."
+              find "$EXTRACT_ROOT" -maxdepth 4 -type f -name settings.gradle.kts -print
+              exit 22
+            fi
             PROJECT_DIR="$(dirname "$SETTINGS")"
+          elif [ -f "$CM_BUILD_DIR/SonusEdit/settings.gradle.kts" ]; then
+            PROJECT_DIR="$CM_BUILD_DIR/SonusEdit"
+            echo "Nenhum ZIP SonusEdit*.zip encontrado; usando pasta do repositório: $PROJECT_DIR"
+          else
+            echo "ERROR: Nenhum pacote SonusEdit*.zip ou pasta SonusEdit/ válido foi encontrado."
+            find "$CM_BUILD_DIR" -maxdepth 2 -type f -print | head -n 100
+            exit 21
           fi
           test -f "$PROJECT_DIR/settings.gradle.kts"
           test -f "$PROJECT_DIR/app/build.gradle.kts"
@@ -193,7 +205,8 @@ workflows:
           from pathlib import Path
           t=Path('app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt').read_text()
           # New project selection starts empty; no automatic assignment should exist.
-          assert 'var selectedRemoteIds by remember(resumeDraft) { mutableStateOf(resumeDraft?.selectedRemoteIds.orEmpty()) }' in t
+          assert 'var selectedRemoteStableKeys by remember(resumeDraft)' in t
+          assert 'RemoteImageSelection14.fileIds(selectedRemoteStableKeys)' in t
           assert 'selectedRemoteIds = suggested' not in t
           assert 'artistGenreResolver' not in t
           PY2
