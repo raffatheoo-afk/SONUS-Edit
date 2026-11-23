@@ -1,6 +1,6 @@
 workflows:
   sonus-edit-0-0-3-code03-debug:
-    name: Sonus Edit 1.0.5 debug
+    name: Sonus Edit 1.0.6 debug
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -53,7 +53,7 @@ workflows:
           echo "SONUS_EDIT_PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
           echo "Projeto preparado em: $PROJECT_DIR"
 
-      - name: Validate Sonus Edit 1.0.5
+      - name: Validate Sonus Edit 1.0.6
         script: |
           set -euo pipefail
           cd "$SONUS_EDIT_PROJECT_DIR"
@@ -101,7 +101,7 @@ workflows:
             app/src/test/java/com/sonusstudios/sonusedit/create/Code24LyricPaletteTest.kt \
             app/src/test/java/com/sonusstudios/sonusedit/create/Code29FontAndImageRotationTest.kt \
             app/src/test/java/com/sonusstudios/sonusedit/create/AutomationPlannerTest.kt \
-            scripts/validate_v1_0_5_code15.py \
+            scripts/validate_v1_0_6_code16.py \
             app/src/main/java/com/sonusstudios/sonusedit/create/RemoteImageSelection14.kt \
             app/src/main/java/com/sonusstudios/sonusedit/create/CaptionRequestGuard14.kt \
             app/src/main/java/com/sonusstudios/sonusedit/create/GalleryQueryRequestGate14.kt \
@@ -136,14 +136,14 @@ workflows:
 
           # Version/dependency/signing contracts.
           grep -q 'applicationId = "com.sonusstudios.sonusedit"' app/build.gradle.kts
-          grep -q 'versionCode = 15' app/build.gradle.kts
-          grep -q 'versionName = "1.0.5"' app/build.gradle.kts
-          grep -q 'versionName=1.0.5' BUILD_VERSION.txt
-          grep -q 'versionCode=15' BUILD_VERSION.txt
-          grep -q 'Text("1.0.5"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Text("1.0.5"' "$FLOW"
-          grep -q 'Versão 1.0.5' app/src/main/java/com/sonusstudios/sonusedit/ui/AboutScreen.kt
-          grep -q '1.0.5 • CODE 15' app/src/main/java/com/sonusstudios/sonusedit/ui/AboutScreen.kt
+          grep -q 'versionCode = 16' app/build.gradle.kts
+          grep -q 'versionName = "1.0.6"' app/build.gradle.kts
+          grep -q 'versionName=1.0.6' BUILD_VERSION.txt
+          grep -q 'versionCode=16' BUILD_VERSION.txt
+          grep -q 'Text("1.0.6"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
+          grep -q 'Text("1.0.6"' "$FLOW"
+          grep -q 'Versão 1.0.6' app/src/main/java/com/sonusstudios/sonusedit/ui/AboutScreen.kt
+          grep -q '1.0.6 • CODE 16' app/src/main/java/com/sonusstudios/sonusedit/ui/AboutScreen.kt
           grep -q 'io.github.junkfood02.youtubedl-android:library:0.18.1' app/build.gradle.kts
           grep -q 'io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1' app/build.gradle.kts
           grep -q 'dev.ffmpegkit-maintained:whisper-android:1.0.0' app/build.gradle.kts
@@ -277,7 +277,7 @@ workflows:
           echo '79fd098ff8d51c9b8db622f502792d1bf76cf6a54a7c3bd2afbae591fea525bc  app/src/main/res/raw/sonus_particles_black_30fps.mp4' | shasum -a 256 -c -
           ! grep -R -q 'effect_particles_source.webp\|drawAnimatedEffect\|atlasFrames' app/src/main
 
-          # CODE15: progressive gallery thumbnails, transition integrity and export ETA.
+          # CODE16: automatic-caption progress and full-frame export stability.
           grep -q 'warmRemoteAssetThumbnails18' "$FLOW"
           grep -q 'sonus_gallery_thumbs_v3' "$FLOW"
           grep -q 'assignmentsForExport' app/src/main/java/com/sonusstudios/sonusedit/create/VisualTransitionPreferences.kt
@@ -314,11 +314,11 @@ workflows:
           test -f app/src/main/java/com/sonusstudios/sonusedit/create/CaptionEtaEstimator13.kt
           test -f app/src/test/java/com/sonusstudios/sonusedit/create/Code27CaptionEtaTest.kt
           # Includes low-memory Gallery, audio-playback and review-screen maintenance guards.
-          python3 scripts/validate_v1_0_5_code15.py
+          python3 scripts/validate_v1_0_6_code16.py
           test -f app/src/test/java/com/sonusstudios/sonusedit/create/Code24LyricPaletteTest.kt
           test -f app/src/main/java/com/sonusstudios/sonusedit/media/PCloudEffectLibrary.kt
 
-          echo "Sonus Edit 1.0.5 / code15 static validation passed."
+          echo "Sonus Edit 1.0.6 / code16 static validation passed."
 
       - name: Restore persistent Sonus Edit signing
         script: |
