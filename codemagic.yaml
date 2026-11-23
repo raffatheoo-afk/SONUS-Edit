@@ -81,6 +81,10 @@ workflows:
             app/src/test/java/com/sonusstudios/sonusedit/create/AudioDurationProbe13Test.kt \
             app/src/test/java/com/sonusstudios/sonusedit/create/GalleryQueryResultGate13Test.kt \
             app/src/main/java/com/sonusstudios/sonusedit/create/CreationDraftStore.kt \
+            app/src/main/java/com/sonusstudios/sonusedit/create/SegmentTrimPlanner12.kt \
+            app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt \
+            app/src/main/java/com/sonusstudios/sonusedit/ui/AboutScreen.kt \
+            app/src/test/java/com/sonusstudios/sonusedit/create/DraftResumeMaintenanceTest.kt \
             app/src/main/java/com/sonusstudios/sonusedit/media/ExportForegroundService.kt \
             app/src/main/java/com/sonusstudios/sonusedit/media/ExportEtaEstimator15.kt \
             app/src/test/java/com/sonusstudios/sonusedit/media/ExportEtaEstimator15Test.kt \
