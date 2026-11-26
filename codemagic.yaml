@@ -1,6 +1,6 @@
 workflows:
   sonus-edit-0-0-3-code03-debug:
-    name: Sonus Edit 1.0.6 debug
+    name: Sonus Edit 1.0.7 debug
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
@@ -21,7 +21,7 @@ workflows:
           EXTRACT_ROOT="$CM_BUILD_DIR/_sonus_edit_current"
           PROJECT_DIR=""
           ZIP=""
-          for candidate in "$CM_BUILD_DIR/SonusEdit.zip" "$CM_BUILD_DIR/SonusEdit_1.0.4_CODE14_VALIDATION_FIX2.zip" "$CM_BUILD_DIR/Sonus Edit.zip" "$CM_BUILD_DIR/Sonus%20Edit.zip"; do
+          for candidate in "$CM_BUILD_DIR/SonusEdit_1.0.7_CODE17.zip" "$CM_BUILD_DIR/SonusEdit.zip" "$CM_BUILD_DIR/Sonus Edit.zip" "$CM_BUILD_DIR/Sonus%20Edit.zip"; do
             if [ -f "$candidate" ]; then ZIP="$candidate"; break; fi
           done
           if [ -z "$ZIP" ]; then
@@ -53,7 +53,7 @@ workflows:
           echo "SONUS_EDIT_PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
           echo "Projeto preparado em: $PROJECT_DIR"
 
-      - name: Validate Sonus Edit 1.0.6
+      - name: Validate Sonus Edit 1.0.7
         script: |
           set -euo pipefail
           cd "$SONUS_EDIT_PROJECT_DIR"
@@ -65,6 +65,7 @@ workflows:
           CATALOG_REPO=app/src/main/java/com/sonusstudios/sonusedit/catalog/PCloudCatalogRepository.kt
           PCLOUD_CLIENT=app/src/main/java/com/sonusstudios/sonusedit/catalog/PCloudPublicCatalogClient.kt
           LINK=app/src/main/java/com/sonusstudios/sonusedit/create/LinkAudioImporter.kt
+          LINK_ENGINE=app/src/main/java/com/sonusstudios/sonusedit/create/SonusLinkEngine.kt
           WHISPER=app/src/main/java/com/sonusstudios/sonusedit/create/WhisperCaptionEngine.kt
           WAV=app/src/main/java/com/sonusstudios/sonusedit/create/AudioSegmentWavExtractor.kt
           ROUTER=app/src/main/java/com/sonusstudios/sonusedit/integration/IncomingIntentRouter.kt
@@ -74,11 +75,12 @@ workflows:
           STATS_UI=app/src/main/java/com/sonusstudios/sonusedit/ui/StatisticsScreen.kt
           KEY_SHADER=app/src/main/res/raw/sonus_video_key_fragment.glsl
 
-          for f in "$FLOW" "$MODELS" "$EXPORTER" "$VISUAL" "$CATALOG" "$CATALOG_REPO" "$PCLOUD_CLIENT" "$LINK" "$WHISPER" "$WAV" "$ROUTER" "$CONTRACT" "$APP" "$STATS" "$STATS_UI" "$KEY_SHADER" \
+          for f in "$FLOW" "$MODELS" "$EXPORTER" "$VISUAL" "$CATALOG" "$CATALOG_REPO" "$PCLOUD_CLIENT" "$LINK" "$LINK_ENGINE" "$WHISPER" "$WAV" "$ROUTER" "$CONTRACT" "$APP" "$STATS" "$STATS_UI" "$KEY_SHADER" \
             app/src/main/java/com/sonusstudios/sonusedit/create/VideoAudioSourceInspector.kt \
             app/src/main/java/com/sonusstudios/sonusedit/create/AudioDurationProbe13.kt \
             app/src/main/java/com/sonusstudios/sonusedit/create/GalleryQueryResultGate13.kt \
             app/src/test/java/com/sonusstudios/sonusedit/create/AudioDurationProbe13Test.kt \
+            app/src/test/java/com/sonusstudios/sonusedit/create/SonusLinkEngineTest.kt \
             app/src/test/java/com/sonusstudios/sonusedit/create/GalleryQueryResultGate13Test.kt \
             app/src/main/java/com/sonusstudios/sonusedit/create/CreationDraftStore.kt \
             app/src/main/java/com/sonusstudios/sonusedit/create/SegmentTrimPlanner12.kt \
@@ -105,7 +107,7 @@ workflows:
             app/src/test/java/com/sonusstudios/sonusedit/create/Code24LyricPaletteTest.kt \
             app/src/test/java/com/sonusstudios/sonusedit/create/Code29FontAndImageRotationTest.kt \
             app/src/test/java/com/sonusstudios/sonusedit/create/AutomationPlannerTest.kt \
-            scripts/validate_v1_0_6_code16.py \
+            scripts/validate_v1_0_7_code17.py \
             app/src/main/java/com/sonusstudios/sonusedit/create/RemoteImageSelection14.kt \
             app/src/main/java/com/sonusstudios/sonusedit/create/CaptionRequestGuard14.kt \
             app/src/main/java/com/sonusstudios/sonusedit/create/GalleryQueryRequestGate14.kt \
@@ -140,27 +142,31 @@ workflows:
 
           # Version/dependency/signing contracts.
           grep -q 'applicationId = "com.sonusstudios.sonusedit"' app/build.gradle.kts
-          grep -q 'versionCode = 16' app/build.gradle.kts
-          grep -q 'versionName = "1.0.6"' app/build.gradle.kts
-          grep -q 'versionName=1.0.6' BUILD_VERSION.txt
-          grep -q 'versionCode=16' BUILD_VERSION.txt
-          grep -q 'Text("1.0.6"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Text("1.0.6"' "$FLOW"
-          grep -q 'Versão 1.0.6' app/src/main/java/com/sonusstudios/sonusedit/ui/AboutScreen.kt
-          grep -q '1.0.6 • CODE 16' app/src/main/java/com/sonusstudios/sonusedit/ui/AboutScreen.kt
-          grep -q 'io.github.junkfood02.youtubedl-android:library:0.18.1' app/build.gradle.kts
-          grep -q 'io.github.junkfood02.youtubedl-android:ffmpeg:0.18.1' app/build.gradle.kts
+          grep -q 'versionCode = 17' app/build.gradle.kts
+          grep -q 'versionName = "1.0.7"' app/build.gradle.kts
+          grep -q 'versionName=1.0.7' BUILD_VERSION.txt
+          grep -q 'versionCode=17' BUILD_VERSION.txt
+          grep -q 'Text("1.0.7"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
+          grep -q 'Text("1.0.7"' "$FLOW"
+          grep -q 'Versão 1.0.7' app/src/main/java/com/sonusstudios/sonusedit/ui/AboutScreen.kt
+          grep -q '1.0.7 • CODE 17' app/src/main/java/com/sonusstudios/sonusedit/ui/AboutScreen.kt
+          ! grep -q 'io.github.junkfood02.youtubedl-android' app/build.gradle.kts
+          ! grep -q 'com.yausername.youtubedl_android' "$LINK"
+          ! grep -q 'com.yausername.ffmpeg' "$LINK"
           grep -q 'dev.ffmpegkit-maintained:whisper-android:1.0.0' app/build.gradle.kts
           test "$(grep -c 'androidx.media3:media3-.*:1.10.1' app/build.gradle.kts)" -eq 5
           grep -q 'android:extractNativeLibs="true"' app/src/main/AndroidManifest.xml
 
-          # Link stays on the proven code22 path.
-          grep -q 'import com.yausername.ffmpeg.FFmpeg' "$LINK"
-          grep -q 'FFmpeg.getInstance().init' "$LINK"
-          grep -q 'repeat(2)' "$FLOW"
+          # CODE17 SONUS Link Engine: direct media transport without bundled extractors.
+          grep -q 'SonusLinkEngine(context.applicationContext)' "$LINK"
+          grep -q 'HttpURLConnection' "$LINK_ENGINE"
+          grep -q 'BufferedInputStream' "$LINK_ENGINE"
+          grep -q 'SonusLinkSourceClassifier' "$LINK_ENGINE"
+          grep -q 'activeConnections' "$LINK_ENGINE"
+          grep -q 'CACHE_MAX_AGE_MS' "$LINK_ENGINE"
           grep -q 'linkImportJob?.isActive == true' "$FLOW"
-          grep -q 'updateYoutubeDL' "$LINK"
-          grep -q 'UpdateChannel.STABLE' "$LINK"
+          grep -q 'LinkImportFailure' "$FLOW"
+          test -f app/src/test/java/com/sonusstudios/sonusedit/create/SonusLinkEngineTest.kt
           grep -q 'ExportRecoveryPolicy14.shouldRetryInChunks' "$EXPORTER"
           grep -q 'setMaxDelayBetweenMuxerSamplesMs' "$EXPORTER"
           grep -q 'CaptionEtaEstimator14' "$FLOW"
@@ -318,11 +324,11 @@ workflows:
           test -f app/src/main/java/com/sonusstudios/sonusedit/create/CaptionEtaEstimator13.kt
           test -f app/src/test/java/com/sonusstudios/sonusedit/create/Code27CaptionEtaTest.kt
           # Includes low-memory Gallery, audio-playback and review-screen maintenance guards.
-          python3 scripts/validate_v1_0_6_code16.py
+          python3 scripts/validate_v1_0_7_code17.py
           test -f app/src/test/java/com/sonusstudios/sonusedit/create/Code24LyricPaletteTest.kt
           test -f app/src/main/java/com/sonusstudios/sonusedit/media/PCloudEffectLibrary.kt
 
-          echo "Sonus Edit 1.0.6 / code16 static validation passed."
+          echo "Sonus Edit 1.0.7 / code17 static validation passed."
 
       - name: Restore persistent Sonus Edit signing
         script: |
