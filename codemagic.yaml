@@ -81,6 +81,7 @@ workflows:
             app/src/main/java/com/sonusstudios/sonusedit/create/GalleryQueryResultGate13.kt \
             app/src/test/java/com/sonusstudios/sonusedit/create/AudioDurationProbe13Test.kt \
             app/src/test/java/com/sonusstudios/sonusedit/create/SonusLinkEngineTest.kt \
+            app/src/test/java/com/sonusstudios/sonusedit/integration/IncomingIntentRouterTest.kt \
             app/src/test/java/com/sonusstudios/sonusedit/create/GalleryQueryResultGate13Test.kt \
             app/src/main/java/com/sonusstudios/sonusedit/create/CreationDraftStore.kt \
             app/src/main/java/com/sonusstudios/sonusedit/create/SegmentTrimPlanner12.kt \
@@ -162,11 +163,19 @@ workflows:
           grep -q 'HttpURLConnection' "$LINK_ENGINE"
           grep -q 'BufferedInputStream' "$LINK_ENGINE"
           grep -q 'SonusLinkSourceClassifier' "$LINK_ENGINE"
+          grep -q 'suggestLocalMedia' "$LINK_ENGINE"
           grep -q 'activeConnections' "$LINK_ENGINE"
           grep -q 'CACHE_MAX_AGE_MS' "$LINK_ENGINE"
           grep -q 'linkImportJob?.isActive == true' "$FLOW"
           grep -q 'LinkImportFailure' "$FLOW"
+          grep -q 'SELECIONAR VÍDEO SALVO' "$FLOW"
+          grep -q 'VideoAudioSourceInspector.validate(context.applicationContext, firstVideo)' "$FLOW"
+          grep -q 'SharedLink' "$ROUTER"
+          grep -q 'extractSharedHttpUrl' "$ROUTER"
+          grep -q 'Route.SharedLink' "$APP"
+          grep -q 'android:mimeType="text/plain"' app/src/main/AndroidManifest.xml
           test -f app/src/test/java/com/sonusstudios/sonusedit/create/SonusLinkEngineTest.kt
+          test -f app/src/test/java/com/sonusstudios/sonusedit/integration/IncomingIntentRouterTest.kt
           grep -q 'ExportRecoveryPolicy14.shouldRetryInChunks' "$EXPORTER"
           grep -q 'setMaxDelayBetweenMuxerSamplesMs' "$EXPORTER"
           grep -q 'CaptionEtaEstimator14' "$FLOW"
