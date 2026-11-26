@@ -1,401 +1,575 @@
+# ════════════════════════════════════════════════════════════════════════════════════════════
+# SONUS 1.0 / CODE10  •  codemagic.yaml
+#
+# TUDO O QUE O BUILD PRECISA PARA COMPILAR (confira antes de iniciar):
+#
+#  1) StreamPulse.zip na RAIZ do repositório. Este arquivo deve ser o pacote CODE10 enviado junto.
+#     O workflow descompacta e valida versionName 1.0 + versionCode 10 antes de compilar.
+#
+#  2) Grupo de variáveis "sonus_signing" no Codemagic (marcadas como SEGURAS):
+#       SONUS_KEYSTORE_PASSWORD  OBRIGATÓRIA  senha do sonus-edit-dev.jks
+#       SONUS_KEY_PASSWORD       opcional     senha da chave (se vazia, usa a senha do keystore)
+#       SONUS_KEY_ALIAS          opcional     alias da chave (padrão: sonusedit)
+#     SEM a senha, o workflow falha antes de compilar. Não existe fallback para assinatura debug/teste.
+#     Nunca escreva senhas neste arquivo. Configure-as como variáveis SEGURAS no grupo sonus_signing.
+#
+#  3) Assinatura: o SONUS passa a usar a MESMA chave permanente do SONUS Edit (alias sonusedit).
+#     O arquivo vem embutido abaixo em base64 (protegido por senha) e é restaurado em $HOME/.sonus-signing-v1.
+#     O workflow confere a impressão digital da chave e, no fim, a assinatura do APK gerado.
+#       SHA-256: FF:38:FE:A1:78:58:71:C7:18:9C:18:20:22:3B:E4:50:DF:58:D7:3D:CF:9C:58:B7:CA:2E:5D:F7:E5:01:CB:6F
+#       SHA-1  : 8D:53:98:C9:15:E1:F0:5C:E6:C1:44:CA:EE:5A:D9:1E:31:DA:C0:92
+#     Mantenha este repositório PRIVADO.
+#
+#  4) Firebase (login com Google): a SHA-1 e a SHA-256 acima devem estar cadastradas no app Android
+#     com.sonusstudios.streampulse. O app/google-services.json deste pacote contém o cliente Android SHA-1
+#     e o cliente OAuth Web do projeto streenpulse; o workflow valida projeto, pacote e clientes antes do build.
+#
+#  5) Firebase: FIREBASE_SERVICE_ACCOUNT_JSON_B64 (variável segura; publica regras, função sonusShare e página Hosting).
+#     Sem essa credencial, o APK ainda pode compilar, mas a página pública de compartilhamento não será publicada.
+#     SONUS_STREAM_PROXY_BASE, SONUS_SHARE_BASE e SONUS_TELEGRAM_UPLOAD_BASE (sobrescrevem os endereços padrão).
+#     SONUS_GOOGLE_LOGIN=true  liga o botão "Entrar com Google" na tela de login. Fica ESCONDIDO por padrão; só ligue
+#     quando o APK sair assinado com a chave permanente (o log termina com "Assinatura do APK conferida"),
+#     porque a SHA-1 cadastrada no Firebase é a dessa chave. O login por e-mail e senha não depende disso.
+#     YOUTUBE_API_KEY NÃO é mais usada: toda a integração com o YouTube foi removida do app.
+#
+#  6) Ambiente do build: Java 17, Android SDK 36 + Build Tools 36.0.0 e Gradle 8.13. O workflow instala
+#     o que faltar. Build 1.0: validar o Stream renovado e as preferências de atualização antes de publicar.
+# ════════════════════════════════════════════════════════════════════════════════════════════
 workflows:
-  sonus-edit-0-0-3-code03-debug:
-    name: Sonus Edit 1.0.7 debug
-    max_build_duration: 60
+  sonus-code10-only-20261125:
+    name: SONUS 1.0 CODE10 - StreamPulse.zip validado
     instance_type: mac_mini_m2
+    max_build_duration: 120
+
     environment:
-      vars:
-        CM_CLONE_DEPTH: 1
-        CM_CLONE_UNSHALLOW: 'false'
       java: 17
+      groups:
+        - sonus_signing
+      vars:
+        GRADLE_VERSION: "8.13"
+        SONUS_REAL_ADS: "true"
+
     cache:
       cache_paths:
         - $HOME/.gradle/caches
         - $HOME/.gradle/codemagic
+
     scripts:
-      - name: Prepare Sonus Edit package
+      - name: Restaurar chave de assinatura permanente (sonus-edit-dev.jks)
         script: |
           set -euo pipefail
-          # Prefer the packaged ZIP when present. This prevents a stale SonusEdit/ checkout
-          # from silently overriding a newer package uploaded to the repository.
-          EXTRACT_ROOT="$CM_BUILD_DIR/_sonus_edit_current"
-          PROJECT_DIR=""
-          ZIP=""
-          for candidate in "$CM_BUILD_DIR/SonusEdit_1.0.7_CODE17.zip" "$CM_BUILD_DIR/SonusEdit.zip" "$CM_BUILD_DIR/Sonus Edit.zip" "$CM_BUILD_DIR/Sonus%20Edit.zip"; do
-            if [ -f "$candidate" ]; then ZIP="$candidate"; break; fi
-          done
-          if [ -z "$ZIP" ]; then
-            ZIP="$(find "$CM_BUILD_DIR" -maxdepth 1 -type f -iname 'SonusEdit*.zip' -print | sort | tail -n 1)"
+          if [ -z "${SONUS_KEYSTORE_PASSWORD:-}" ]; then
+            echo "ERRO: SONUS_KEYSTORE_PASSWORD não está configurada no grupo seguro 'sonus_signing'."
+            echo "       Build cancelado para impedir APK com assinatura debug/teste e conflito na atualização."
+            exit 1
           fi
-          if [ -n "$ZIP" ]; then
-            echo "Usando pacote ZIP: $ZIP"
-            rm -rf "$EXTRACT_ROOT"
-            mkdir -p "$EXTRACT_ROOT"
-            unzip -q "$ZIP" -d "$EXTRACT_ROOT"
-            SETTINGS="$(find "$EXTRACT_ROOT" -maxdepth 3 -type f -name settings.gradle.kts | head -n 1)"
-            if [ -z "$SETTINGS" ]; then
-              echo "ERROR: O ZIP selecionado não contém settings.gradle.kts na raiz esperada."
-              find "$EXTRACT_ROOT" -maxdepth 4 -type f -name settings.gradle.kts -print
-              exit 22
-            fi
-            PROJECT_DIR="$(dirname "$SETTINGS")"
-          elif [ -f "$CM_BUILD_DIR/SonusEdit/settings.gradle.kts" ]; then
-            PROJECT_DIR="$CM_BUILD_DIR/SonusEdit"
-            echo "Nenhum ZIP SonusEdit*.zip encontrado; usando pasta do repositório: $PROJECT_DIR"
-          else
-            echo "ERROR: Nenhum pacote SonusEdit*.zip ou pasta SonusEdit/ válido foi encontrado."
-            find "$CM_BUILD_DIR" -maxdepth 2 -type f -print | head -n 100
-            exit 21
+          KEY_DIR="$HOME/.sonus-signing-v1"
+          mkdir -p "$KEY_DIR"
+          chmod 700 "$KEY_DIR"
+          JKS="$KEY_DIR/sonus-edit-dev.jks"
+          cat > "$KEY_DIR/sonus-edit-dev.jks.b64" <<'EOF_SONUS_KEY'
+          /u3+7QAAAAIAAAABAAAAAQAJc29udXNlZGl0AAABoVKWHeAAAAT/MIIE+zAMBgorBgEEASoCEQEBBIIE6WOvNC143Z0obKFHATlFoRUxHBnRPqm1aM0cw3iiFfiQfjcQRgCHDMSTCuhorRmLqaU80DFEOHJM+B+tb8EYayyK4Psif2C27HcI53ablT6NRVfDgAMDMYyIS7LAjMo76xbw5D2B6Z5tzLCWpSKEyd50h5cvAjncr/mW/e5gIr+nLqxp/7zqldbiYGr5E6w/qE2eKF0ndO7GhpYol9ZH11CS/71BTzyR+pJSiouzo3DNIO57uyelWP3E7SgHyw6NLW15kR6jhcldvPWewVWol2DGF1nsbeCPgjdlIuAfejMtCHNBB1HO0UJMT+s+ypf7lC9/Ln86nCLZTMyfOVv5aELgrVcPu4nXczkx+Clf7ZM3IU5G92WdWVq1ej5YktMEF6jDh88tlX3RIgm5C4nyKOKRbmgsBRstkvavnFmFDWwAyuJxlpG6snKZRnQAvCs+38IhBfe0UoO+Z5fKWQhVjKOaNaIExqy5esJ+qAWhAwFpnJW6O3T7COty/sItk5CDkH72gRoJizO2JOLCiBlyIjX696027Bp6f4tVFMg79M3Caa+xOix8l2+VC8GFHy+y5X4YFm+BbjQnWskSwmmnOwKuHHDLTSwlWCacznL91tH45wITmZrMX+wxM2/fXo3UBNOf7zg+WhnBUH1plImMWE07/jjwZ3cBr8imHdULdVSh+6ORKXlY6F0SXTI2F559Tanjk1jnER1vx6Bqvpno9YtmfHjr2a2fItRBWRaCC1ON99MFrojWGOqJREdNzzSF7NFZIqWNwKTNZisyGzxXiHOSzXVlQNamtSBYAUl38+egCg4l4ExZ1F5v6mqPbnwxu1SqHK17pmjqC1IlpuG0m4Bw34Ecr5PFdDFXnchZnKk7S1bbwHFHYUzzLoUjcd2MazgPElA33JNkbVJLpiP2dBXREst3MEmS5bWa6fpbsiLS/DVscM/0Go6d//7URwJ86dVpIKwLHAAX1FYIg+ly43e1iFyUIrkFJ6iW5Wq4oLDXQ1YEHeP8nolNsrHkBuMEz5rjaOf83DggKd1FR7lgiucYVFlIie8X2vSp42sG4h7BcdZtdimDsgbPV6gAJeISk41ApcY48c2GbWiHdYDuZvFIoxUusDJguWhk8LohoTBb3uGHRT/em2HbhypCmYfWf18TKHz76x/5cOmsy8qAZVasue1yNekONyNxqn5sErC6fcmV5Bab/Foxyg4dn3hZk5icMSmQjEcJfPrVD6WXUXISUB5sP+WAmsYKQbtpw1aD6LIgrWe6ODf0xnsOcRQoOixCYbbEWQVIZUSrQxAk3E7xnHC31UCY+4QEVgTY4p2mZzJIt3HkvWh6YFcwbrixpkAnrI15no8ebt1bEFf2y+B85Ju4bXh1mz5/ZOhsIkzrEGvgwHmcuR/ttkZ1lzjmSC8lTiozatx9q/YK+6N042XRUEL5KvF79sNZPk2Q4Sv/D4I4OpD9Dn4JyIxwtZn2Pe2c4keHiqYJLzD4dYxxDWLltLUL0SpGx03NxRXnZRADWEe6bfmrx3hOxQ+7yqm4iQ7sb1q75cpHVzfqJwXJrRYsIKncihFWy/jppKOQCeHKFr29tHbEw9xDrez6e3B4NC6kTjtWUiyJeTlEaGh/blO4iR1ppAyFnao7xXxx9Mu5ucNcfPXvhnc00rLfXgrtPD8RKMIfrxBNvgAAAAEABVguNTA5AAADTjCCA0owggIyoAMCAQICCQDEaZsg9IimzzANBgkqhkiG9w0BAQwFADBSMQswCQYDVQQGEwJCUjEWMBQGA1UEChMNU29udXMgU3R1ZGlvczEWMBQGA1UECxMNU29udXMgU3R1ZGlvczETMBEGA1UEAxMKU29udXMgRWRpdDAgFw0yNjEwMTkwNTE1MzJaGA8yMDU0MDMwNjA1MTUzMlowUjELMAkGA1UEBhMCQlIxFjAUBgNVBAoTDVNvbnVzIFN0dWRpb3MxFjAUBgNVBAsTDVNvbnVzIFN0dWRpb3MxEzARBgNVBAMTClNvbnVzIEVkaXQwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCbmNvnWJJu52YV7lQ/esNfDrVEd75jhrAm7yjL/+Gk/yA++jjnwIiYelA+pmSymq0RvSZ7lAGiU1Aq85EN78zS6ITWYvVCfJ7F2YFxZp5uB2wAPIqrAXcVLo+8D7pMUSRf/QD6SgiwVhDQO/pqGJiDjDjITSbyZIx6vVce9jEswRF2ILGED3LS4OeraDm59keu9kG797nWAY52VJRo6VPtDEXmVeRA10V5e9oAv5bOdi8bU9XMyZ4WpirIkn1zMP0crlKlhc++XQJzCHdYavdmmGASog4fcQnxmpq65xe+Rb9nKfiV5v/YncJr5cuR8CXMHu+hxoPq9gfZq9KHRh8bAgMBAAGjITAfMB0GA1UdDgQWBBQHmq8nnesgqlfdGex2oRZCzaF75DANBgkqhkiG9w0BAQwFAAOCAQEAPuyQHblgM83EQWnS1QJV2zBDuht9PZoOpkL/q8+Nzg7GilbyaP9ErAo1JBHrP82fk+qGY8MM0CNZyAHfUBaHCL+Psf+3X0n70ECPV2EZvFpgLZazx3/DI1eI53+A2il0ReFIGqZO69ZDUXKHr/IZGF1qIDG7UNiFwNkA5J4HZs+PyoxK5iUUIwxMP2VEVNmdVbY4+Kobc7oNCeAA8VbpeTV/HEqBu99mvwGCQT3Pk6wgtYYG0rn7I6xCyhui7JlaCV5aTwrAQ2k5Mr8tPJ5uYbGRguNuVLrjmDi7H8vhnT5a0NBCi2pA6xIJSzoTub5h/WNxrtJgUQV2YoeAVFGrNVQellGQqk9t7p3gipRYt39D8jst
+          EOF_SONUS_KEY
+          base64 --decode < "$KEY_DIR/sonus-edit-dev.jks.b64" > "$JKS"
+          rm -f "$KEY_DIR/sonus-edit-dev.jks.b64"
+          if command -v shasum >/dev/null 2>&1; then GOT_JKS="$(shasum -a 256 "$JKS" | awk '{print $1}')"; else GOT_JKS="$(sha256sum "$JKS" | awk '{print $1}')"; fi
+          if [ "$GOT_JKS" != "b3884a61a389fcc2090846ff47926935337cfc522cf367418f68eab879fb0295" ]; then
+            echo "ERRO: o arquivo da chave restaurado não confere (corrompido)."
+            exit 1
           fi
-          test -f "$PROJECT_DIR/settings.gradle.kts"
-          test -f "$PROJECT_DIR/app/build.gradle.kts"
-          test -f "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
-          echo "SONUS_EDIT_PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
-          echo "Projeto preparado em: $PROJECT_DIR"
+          ALIAS="${SONUS_KEY_ALIAS:-sonusedit}"
+          if ! keytool -list -v -keystore "$JKS" -storepass "$SONUS_KEYSTORE_PASSWORD" -alias "$ALIAS" > "$KEY_DIR/keytool.txt" 2>&1; then
+            echo "ERRO: não foi possível abrir o keystore. SONUS_KEYSTORE_PASSWORD ou SONUS_KEY_ALIAS incorretos?"
+            exit 1
+          fi
+          FP="$(grep -m1 'SHA256:' "$KEY_DIR/keytool.txt" | sed 's/.*SHA256: *//' | tr -d ' ')"
+          rm -f "$KEY_DIR/keytool.txt"
+          if [ "$FP" != "FF:38:FE:A1:78:58:71:C7:18:9C:18:20:22:3B:E4:50:DF:58:D7:3D:CF:9C:58:B7:CA:2E:5D:F7:E5:01:CB:6F" ]; then
+            echo "ERRO: a impressão digital da chave NÃO é a da chave permanente do SONUS ($FP)."
+            exit 1
+          fi
+          echo "SONUS_KEYSTORE_PATH=$JKS" >> "$CM_ENV"
+          echo "Chave de assinatura permanente restaurada e conferida (SHA-256 FF:38:FE:A1...CB:6F)."
 
-      - name: Validate Sonus Edit 1.0.7
+      - name: Preparar e validar SONUS 1.0
         script: |
           set -euo pipefail
-          cd "$SONUS_EDIT_PROJECT_DIR"
-          FLOW=app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt
-          MODELS=app/src/main/java/com/sonusstudios/sonusedit/create/CreateModels.kt
-          EXPORTER=app/src/main/java/com/sonusstudios/sonusedit/media/AutomaticVideoExporter.kt
-          VISUAL=app/src/main/java/com/sonusstudios/sonusedit/media/VideoVisualEffects.kt
-          CATALOG=app/src/main/java/com/sonusstudios/sonusedit/catalog/PCloudCatalog.kt
-          CATALOG_REPO=app/src/main/java/com/sonusstudios/sonusedit/catalog/PCloudCatalogRepository.kt
-          PCLOUD_CLIENT=app/src/main/java/com/sonusstudios/sonusedit/catalog/PCloudPublicCatalogClient.kt
-          LINK=app/src/main/java/com/sonusstudios/sonusedit/create/LinkAudioImporter.kt
-          LINK_ENGINE=app/src/main/java/com/sonusstudios/sonusedit/create/SonusLinkEngine.kt
-          WHISPER=app/src/main/java/com/sonusstudios/sonusedit/create/WhisperCaptionEngine.kt
-          WAV=app/src/main/java/com/sonusstudios/sonusedit/create/AudioSegmentWavExtractor.kt
-          ROUTER=app/src/main/java/com/sonusstudios/sonusedit/integration/IncomingIntentRouter.kt
-          CONTRACT=app/src/main/java/com/sonusstudios/sonusedit/integration/SonusLinkContract.kt
-          APP=app/src/main/java/com/sonusstudios/sonusedit/ui/SonusEditApp.kt
-          STATS=app/src/main/java/com/sonusstudios/sonusedit/stats/UsageStatsStore.kt
-          STATS_UI=app/src/main/java/com/sonusstudios/sonusedit/ui/StatisticsScreen.kt
-          KEY_SHADER=app/src/main/res/raw/sonus_video_key_fragment.glsl
+          echo "=== SONUS 1.0 / CODE10 ==="
+          sha256() { if command -v shasum >/dev/null 2>&1; then shasum -a 256 "$1" | awk '{print $1}'; else sha256sum "$1" | awk '{print $1}'; fi; }
+          # O repositório do usuário utiliza o nome padrão StreamPulse.zip.
+          # O ZIP é aceito somente se o projeto interno declarar CODE10 (versionCode 10 / versionName 1.0).
+          SRC_ZIP="$CM_BUILD_DIR/StreamPulse.zip"
+          if [ ! -f "$SRC_ZIP" ]; then
+            echo "ERRO: falta StreamPulse.zip na raiz do repositório."
+            echo "Adicione o ZIP CODE10 enviado junto com este YAML e faça commit/push."
+            echo "Arquivos encontrados na raiz:"
+            ls -la "$CM_BUILD_DIR"
+            exit 1
+          fi
+          WORK_DIR="$CM_BUILD_DIR/_sonus_1_0"
+          rm -rf "$WORK_DIR"
+          mkdir -p "$WORK_DIR"
+          echo "Pacote selecionado: $SRC_ZIP"
+          echo "SHA-256 do pacote: $(sha256 "$SRC_ZIP")"
+          unzip -q -o "$SRC_ZIP" -d "$WORK_DIR"
+          SETTINGS_FILE="$(find "$WORK_DIR" -maxdepth 5 -name settings.gradle.kts -print -quit)"
+          [ -n "$SETTINGS_FILE" ] || { echo "ERRO: settings.gradle.kts não foi encontrado dentro do ZIP CODE10."; exit 1; }
+          PROJECT_DIR="$(dirname "$SETTINGS_FILE")"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$CM_ENV"
+          echo "Projeto localizado em: $PROJECT_DIR"
 
-          for f in "$FLOW" "$MODELS" "$EXPORTER" "$VISUAL" "$CATALOG" "$CATALOG_REPO" "$PCLOUD_CLIENT" "$LINK" "$LINK_ENGINE" "$WHISPER" "$WAV" "$ROUTER" "$CONTRACT" "$APP" "$STATS" "$STATS_UI" "$KEY_SHADER" \
-            app/src/main/java/com/sonusstudios/sonusedit/create/VideoAudioSourceInspector.kt \
-            app/src/main/java/com/sonusstudios/sonusedit/create/AudioDurationProbe13.kt \
-            app/src/main/java/com/sonusstudios/sonusedit/create/GalleryQueryResultGate13.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/AudioDurationProbe13Test.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/SonusLinkEngineTest.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/GalleryQueryResultGate13Test.kt \
-            app/src/main/java/com/sonusstudios/sonusedit/create/CreationDraftStore.kt \
-            app/src/main/java/com/sonusstudios/sonusedit/create/SegmentTrimPlanner12.kt \
-            app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt \
-            app/src/main/java/com/sonusstudios/sonusedit/ui/AboutScreen.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/DraftResumeMaintenanceTest.kt \
-            app/src/main/java/com/sonusstudios/sonusedit/media/ExportForegroundService.kt \
-            app/src/main/java/com/sonusstudios/sonusedit/media/ExportEtaEstimator15.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/media/ExportEtaEstimator15Test.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/Code20AspectRatioTest.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/Code22GallerySearchTest.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/Code30CaptionFontPoolTest.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/Code31CaptionStylesTest.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/Code07CaptionPositionTest.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/Code02ExportAndRatiosTest.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/Code03ImageCooldownTest.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/Code03CaptionLanguageHintTest.kt \
-            app/src/main/java/com/sonusstudios/sonusedit/media/ExportCapabilities02.kt \
-            app/src/main/java/com/sonusstudios/sonusedit/ui/CaptionAdjustSliders.kt \
-            app/src/main/java/com/sonusstudios/sonusedit/ui/AutoCaptionsScreen.kt \
-            app/src/main/java/com/sonusstudios/sonusedit/media/CaptionStyleRenderer.kt \
-            app/src/main/java/com/sonusstudios/sonusedit/catalog/GallerySearchRotation.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/catalog/GallerySearchRotationTest.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/Code24LyricPaletteTest.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/Code29FontAndImageRotationTest.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/AutomationPlannerTest.kt \
-            scripts/validate_v1_0_7_code17.py \
-            app/src/main/java/com/sonusstudios/sonusedit/create/RemoteImageSelection14.kt \
-            app/src/main/java/com/sonusstudios/sonusedit/create/CaptionRequestGuard14.kt \
-            app/src/main/java/com/sonusstudios/sonusedit/create/GalleryQueryRequestGate14.kt \
-            app/src/main/java/com/sonusstudios/sonusedit/catalog/PCloudCatalogNodeParser14.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/RemoteImageSelection14Test.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/CaptionRequestGuard14Test.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/GalleryQueryRequestGate14Test.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/catalog/PCloudCatalogNodeParser14Test.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/ExportMetadataPolicy14Test.kt \
-            app/src/main/java/com/sonusstudios/sonusedit/catalog/StreamMetadataStore.kt \
-            app/src/main/java/com/sonusstudios/sonusedit/catalog/StreamCatalogMetadataMapper.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/catalog/StreamCatalogMetadataMapper13Test.kt \
-            app/src/main/java/com/sonusstudios/sonusedit/catalog/PCloudSearchCachePolicy.kt \
-            app/src/main/java/com/sonusstudios/sonusedit/create/VisualTransitionPreferences.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/VisualTransitionCatalogTest.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/ImageCooldownPlannerTest.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/create/SmartImageSelectorManualSearchTest.kt \
-            app/src/test/java/com/sonusstudios/sonusedit/catalog/PCloudSearchCachePolicyTest.kt \
-            CODE23_APPROVED_SCOPE.txt CODE23_IMPLEMENTATION.md; do
-            test -f "$f"
+          APP_GRADLE="$PROJECT_DIR/app/build.gradle.kts"
+          MANIFEST="$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+          [ -f "$APP_GRADLE" ] || { echo "ERRO: app/build.gradle.kts não encontrado."; exit 1; }
+          grep -Eq '^[[:space:]]*versionCode = 10[[:space:]]*$' "$APP_GRADLE" || {
+            echo "ERRO: o pacote selecionado NÃO é CODE10 (versionCode 10)."
+            echo "O StreamPulse.zip encontrado é de outra versão. Substitua-o pelo ZIP CODE10 enviado junto com este YAML e faça commit/push."
+            exit 1
+          }
+          grep -Fq 'versionName = "1.0"' "$APP_GRADLE" || {
+            echo "ERRO: o pacote selecionado não declara versionName 1.0."
+            exit 1
+          }
+          echo "FONTE CONFIRMADA: SONUS 1.0 / CODE10 (versionCode 10)."
+          echo "IDENTIFICADOR DO WORKFLOW: sonus-code10-only-20261125"
+          J="$PROJECT_DIR/app/src/main/java/com/sonusstudios/streampulse"
+          RES="$PROJECT_DIR/app/src/main/res"
+          fail() { echo "ERRO: $1"; exit 1; }
+
+          # ── Versão e identidade ──
+          grep -Eq '^[[:space:]]*versionCode = 10[[:space:]]*$' "$APP_GRADLE" || fail "versionCode deve ser 10 (SONUS 1.0)."
+          grep -Fq 'versionName = "1.0"' "$APP_GRADLE" || fail "versionName deve ser 1.0."
+          grep -Fq 'applicationId = "com.sonusstudios.streampulse"' "$APP_GRADLE" || fail "applicationId alterado."
+          grep -Fq 'SONUS_KEYSTORE_PATH' "$APP_GRADLE" || fail "assinatura permanente (SONUS_KEYSTORE_PATH) ausente no gradle."
+          grep -Fq 'if (!hasPermanentKey)' "$APP_GRADLE" || fail "o Gradle deve bloquear builds sem a chave oficial."
+          grep -Fq 'throw GradleException' "$APP_GRADLE" || fail "bloqueio de assinatura ausente no Gradle."
+          grep -Fq 'signingConfig = signingConfigs.getByName("sonus")' "$APP_GRADLE" || fail "APK não está configurado para assinatura oficial."
+          if grep -Fq 'signingConfigs.getByName("debug")' "$APP_GRADLE"; then fail "fallback de assinatura debug não é permitido."; fi
+          [ ! -f "$PROJECT_DIR/app/beta-debug.keystore" ] || fail "a chave antiga beta-debug.keystore não deve voltar ao projeto."
+
+          # ── Arquivos protegidos e identidade: motor de conversão e plataforma Stream permanecem fixados.
+          # PulsePlayerService recebe alterações deliberadas da CODE10 e também fica fixado pelo hash desta entrega. ──
+          [ "$(sha256 "$J/tools/AudioToolEngine.kt")" = "6e787082a16a6f040abd61f72dc8fe0d7bfa3e1bac184fc1c2b4c5a96cf0eedd" ] || fail "AudioToolEngine divergiu da base aprovada."
+          [ "$(sha256 "$J/tools/PulsePlayerService.kt")" = "2d21746455f75f8b3e7097be8ee25f7375c30a58c07d64432a3437f163dbf253" ] || fail "PulsePlayerService divergiu da versão de referência CODE10."
+          [ "$(sha256 "$J/stream/SonusStreamPlatform.kt")" = "483f309499742c7d216090bf3f3530346773b6f0ce4ec9e2f02c87221788edd2" ] || fail "SonusStreamPlatform divergiu do ajuste OWNER validado na CODE09."
+
+          # ── Arquivos novos desta versão ──
+          for f in tools/SonusLiveStudio.kt tools/SonusLiveMedia.kt tools/SonusLiveUsage.kt tools/SonusRadioVoices.kt \
+                   tools/SonusPdfStudio.kt tools/SonusImageBatchTools.kt tools/SonusLockScreenActivity.kt \
+                   tools/SonusLockScreenLyrics.kt tools/SonusStreamOpenTrace.kt tools/SonusLiveChrome.kt audio/SonusEqualizer.kt \
+                   tools/SonusOfflineDownloads.kt tools/SonusAudioMonitor.kt \
+                   audio/SonusEqPresetCatalog.kt audio/SonusSmartEq.kt tools/SonusAutoVolume.kt tools/SonusAmbientEventClassifier.kt; do
+            [ -f "$J/$f" ] || fail "arquivo obrigatório ausente: $f"
           done
 
-          # code04 regression guards: bounded trim preview, per-export caption toggle and selection review.
-          grep -q 'TrimPreviewPlanner04.shouldStop' "$FLOW"
-          grep -q 'memoryExhausted' app/src/main/java/com/sonusstudios/sonusedit/media/ExportCapabilities02.kt
-          grep -q 'TrimPreviewPlanner04.endPreviewPosition' "$FLOW"
-          grep -q 'captionsEnabledForVideo' app/src/main/java/com/sonusstudios/sonusedit/create/CreationDraftStore.kt
-          grep -q 'Mídias selecionadas' "$FLOW"
-          grep -q 'BUSCANDO' "$FLOW"
-          test -f app/src/main/java/com/sonusstudios/sonusedit/create/TrimPreviewPlanner04.kt
-          test -f app/src/test/java/com/sonusstudios/sonusedit/create/Code04TrimPreviewTest.kt
+          # ── Funções que DEVEM existir ──
+          grep -Fq 'fun cutAudioSegmentsToSonus' "$J/tools/CreatorAudioEngine.kt" || fail "Cortador de Áudio ausente."
+          grep -Fq 'ToolId.MEDIA_RENAME' "$J/tools/ToolSuiteScreen.kt" || fail "Renomear áudios/vídeos ausente."
+          grep -Fq 'ToolId.IMG_CROP_BATCH' "$J/tools/ToolSuiteScreen.kt" || fail "Recorte em lote ausente."
+          grep -Fq 'NeonCategoryDivider' "$J/tools/ToolSuiteScreen.kt" || fail "linhas neon da aba Aplicativos ausentes."
+          grep -Fq 'APLICATIVOS SONUS' "$J/tools/ToolSuiteScreen.kt" || fail "aba Aplicativos não renomeada."
+          grep -Fq 'SonusLiveStudioScreen' "$J/tools/PulsePlayerScreen.kt" || fail "botão LIVE ausente no Player."
+          grep -Fq 'TRACKS_PER_VOICE = 4' "$J/tools/SonusRadioEngine.kt" || fail "locução deve tocar a cada 4 músicas."
+          grep -Fq 'GOOGLE_LOGIN_ENABLED' "$APP_GRADLE" || fail "chave de build do login com Google ausente."
+          grep -Fq 'sonusStreamGenreStations' "$J/tools/SonusLiveStudio.kt" || fail "Studio deve usar os gêneros do Stream (não as pastas)."
+          grep -Fq 'SonusLiveImmersiveEffect' "$J/tools/SonusLiveStudio.kt" || fail "modo imersivo/rotação da live ausente."
+          grep -Fq 'allowAudioPlaybackCapture="true"' "$MANIFEST" || fail "captura do áudio do app deve estar permitida no manifest."
+          grep -Fq 'SonusRadioVoices.PUBLIC_CODE' "$J/tools/SonusRadioVoices.kt" || grep -Fq 'const val PUBLIC_CODE' "$J/tools/SonusRadioVoices.kt" || fail "locuções da nuvem ausentes."
+          grep -Fq 'invalidateInitialSnapshot' "$J/tools/SonusOnlineMusic.kt" || fail "invalidação do snapshot do Stream ausente."
+          if grep -Fq 'warmProcessSnapshot()' "$J/StreamPulseApplication.kt"; then fail "o catálogo não pode ser aquecido no boot."; fi
+          if grep -Fq 'SonusRadioVoices.refreshAsync(this)' "$J/StreamPulseApplication.kt"; then fail "locuções da Rádio só podem ser atualizadas sob demanda."; fi
+          grep -Fq 'if (m == -1) return true' "$J/tools/SonusStreamExperience.kt" || fail "atualização a cada abertura ausente."
+          grep -Fq 'fun dueForBasicRefresh' "$J/tools/SonusStreamExperience.kt" || fail "controle de intervalo dos dados básicos ausente."
+          grep -Fq 'favoriteGenres' "$J/tools/SonusStreamExperience.kt" || fail "favoritos de gêneros ausentes."
+          grep -Fq 'projectOfficialStreamGenres' "$J/tools/SonusOnlineMusic.kt" || fail "grade de gêneros oficiais não está separada das fontes internas."
+          grep -Fq 'recent_tracks_index' "$J/tools/SonusOnlineMusic.kt" || fail "índice leve de Adicionadas recentemente ausente."
+          grep -Fq 'startRadioFromCatalog' "$J/tools/SonusOnlineMusic.kt" || fail "estações da Rádio não estão sob demanda."
+          grep -Fq 'genrePreferences.toggleFavoriteGenre' "$J/tools/SonusOnlineMusic.kt" || fail "ação de favoritar gênero ausente."
+          grep -Fq '1440 to "24 h"' "$J/tools/SonusOnlineMusic.kt" || fail "intervalos de atualização CODE09 incompletos."
+          grep -Fq '0 to "Manual"' "$J/tools/SonusOnlineMusic.kt" || fail "atualização manual não está disponível."
+          grep -Fq 'SONUS_CURRENT_VERSION_SUMMARY' "$J/cloud/SonusUpdateSystem.kt" || fail "resumo da versão não está no Sobre."
+          grep -Fq 'SONUS_PCLOUD_TERTIARY_PUBLIC_CODE' "$APP_GRADLE" || fail "terceira pasta musical do Stream ausente."
+          if grep -Fq 'PULSE_ROTATION_WINDOW_MS' "$J/tools/SonusOnlineMusic.kt" || grep -Fq 'SonusStreamPulse(' "$J/tools/SonusOnlineMusic.kt"; then fail "prateleira promocional PULSE não deve estar na Home do Stream."; fi
+          grep -Fq 'SonusTopActionChip' "$J/tools/SonusOnlineMusic.kt" || fail "novos botões superiores do Stream ausentes."
+          grep -Fq 'SonusStreamQuickActionCard' "$J/tools/SonusOnlineMusic.kt" || fail "atalhos leves do Stream ausentes."
+          grep -Fq 'clearArtworkCache' "$J/tools/SonusOnlineMusic.kt" || fail "limpeza de capas deve limpar cache de disco e memória."
+          grep -Fq 'synchronizedLyricsForFileId(onlineRef.fileId)' "$J/tools/SonusLiveStudio.kt" || fail "LIVE precisa buscar letra Stream/comunitária/LRCLIB."
+          grep -Fq 'liveLyricCueAt(rawLyrics, playback.positionMs)' "$J/tools/SonusLiveStudio.kt" || fail "LIVE precisa sincronizar a letra pela posição do áudio."
+          grep -Fq 'openOfficialGenreCursor' "$J/tools/SonusOnlineMusic.kt" || fail "cursor progressivo do cache do gênero ausente."
+          grep -Fq 'cachedOfficialGenrePage' "$J/tools/SonusOnlineMusic.kt" || fail "consulta paginada de compatibilidade do gênero ausente."
+          grep -Fq 'cachedTrackByFileId' "$J/tools/SonusOnlineMusic.kt" || fail "resolução leve da faixa atual para letras da LIVE ausente."
+          grep -Fq 'synchronizedLyricsForFileId(track.fileId)' "$J/tools/SonusOnlineMusic.kt" || fail "Sonus Edit Lite precisa buscar LRC original/comunitário/LRCLIB."
+          grep -Fq 'transitionIndex = (0..4).filter { it != transitionIndex }.random()' "$J/tools/SonusLiveMedia.kt" || fail "LIVE precisa sortear cinco transições sem repetição imediata."
+          grep -Fq 'private val liveCaptionStyles' "$J/tools/SonusLiveStudio.kt" || fail "Modelos de legenda da LIVE ausentes."
+          grep -Fq 'galleryPreviewLimit = 50' "$J/tools/SonusOnlineMusic.kt" || fail "Galeria do Sonus Edit Lite deve carregar até 50 mídias."
+          grep -Fq 'fun listPublicMedia(code: String)' "$J/tools/SonusOnlineMusic.kt" || fail "Galeria precisa aceitar fotos e vídeos."
+          grep -Fq 'VÍDEO' "$J/tools/SonusOnlineMusic.kt" || fail "Identificador visual de vídeos ausente na galeria."
+          grep -Fq 'Alione' "$J/tools/SonusOnlineMusic.kt" || fail "Opção de fonte Alione ausente."
+          grep -Fq 'Impact Stone' "$J/tools/SonusOnlineMusic.kt" || fail "Opção de fonte Impact Stone ausente."
+          grep -Fq 'Bainsley Bold Italic' "$J/tools/SonusOnlineMusic.kt" || fail "Opção de fonte Bainsley Bold Italic ausente."
+          grep -Fq 'if (user.role != AccountRole.OWNER)' "$J/stream/SonusStreamPlatform.kt" || fail "Regra de 30 dias precisa ser exclusiva para contas comuns."
+          grep -Fq 'SONUS EDIT LITE' "$J/tools/PulsePlayerScreen.kt" || fail "Atalho principal Sonus Edit Lite ausente no Player."
+          grep -Fq 'PlayerHeaderLyricsStrip' "$J/tools/PulsePlayerScreen.kt" || fail "Faixa fixa de letras ausente no cabeçalho do Player."
+          grep -Fq 'PlayerDownloadCircle' "$J/tools/PulsePlayerScreen.kt" || fail "Botão circular de download ausente no Player."
+          grep -Fq 'onAutoVolume' "$J/tools/PlayerInterfaces.kt" || fail "Selo AUTO no player ausente."
+          grep -Fq 'SONUS AUTO VOLUME' "$J/tools/SonusAutoVolume.kt" || fail "Tela SONUS AUTO VOLUME ausente."
+          grep -Fq 'pedestre_rua' "$J/tools/SonusAutoVolume.kt" || fail "Perfil Pedestre/Rua ausente."
+          grep -Fq 'SONUS VOLUME EXTRA' "$J/audio/SonusEqualizer.kt" || grep -Fq 'VOLUME EXTRA' "$J/audio/SonusEqualizer.kt" || fail "Controle Volume Extra ausente no painel compartilhado."
+          # ── Equalizador compacto da manutenção CODE10 R1 ──
+          # Os layouts/temas do equalizador foram removidos por decisão do usuário;
+          # CORES é a única personalização visual. Não exigir nomes dos layouts antigos.
+          EQ_SCREEN="$J/tools/PulsePlayerScreen.kt"
+          grep -Fq 'Text("CURVA EQ"' "$EQ_SCREEN" || fail "Gráfico funcional CURVA EQ ausente."
+          grep -Fq 'Text("CORES")' "$EQ_SCREEN" || fail "Seletor de paleta CORES ausente."
+          grep -Fq 'Text("BASS BOOST"' "$EQ_SCREEN" || fail "Controle Bass Boost ausente no topo do equalizador."
+          grep -Fq 'Text("LIGA / DESLIGA"' "$EQ_SCREEN" || fail "Controle liga/desliga ausente no topo do equalizador."
+          if grep -Fq 'SONUS ONDA AZUL' "$EQ_SCREEN" || grep -Fq 'Text("TEMAS")' "$EQ_SCREEN"; then
+            fail "Seletor antigo de layouts TEMAS não deve existir no equalizador R1."
+          fi
+          if grep -Fq 'Text("Equalizador SONUS")' "$EQ_SCREEN"; then
+            fail "Card gigante Equalizador SONUS não deve voltar ao equalizador R1."
+          fi
+          grep -Fq 'SonusSmartEq' "$J/tools/PulsePlayerScreen.kt" || fail "Motor SMART EQ não conectado ao Player."
+          grep -Fq 'Rock (ASR)' "$J/audio/SonusEqPresetCatalog.kt" || fail "Curvas legadas do painel compartilhado não foram preservadas."
+          grep -Fq 'eq_catalog_code10_migrated' "$J/audio/AudioConverterProScreen.kt" || fail "Migração de presets antigos do Conversor PRO ausente."
+          grep -Fq 'eq_preset_catalog_code10_migrated' "$J/tools/SonusVideoSettings.kt" || fail "Migração de presets antigos do Video EQ ausente."
+          grep -Fq 'SonusAmbientEventClassifier' "$J/tools/PulsePlayerService.kt" || fail "Classificador acústico local ausente do Auto Volume."
+          grep -Fq 'eq.apply(exo.audioSessionId, settings.eqEnabled, videoEqCurve(category), settings.volumeExtraDb)' "$J/tools/SonusQuickVideoActivity.kt" || fail "Volume Extra ausente na reprodução rápida de vídeo."
+          grep -Fq 'tensorflow-lite:2.17.0' "$APP_GRADLE" || fail "Runtime TFLite do classificador ambiental ausente."
+          grep -Fq 'prepareSonusYamnet' "$PROJECT_DIR/app/build.gradle.kts" || fail "Download verificado do modelo YAMNet ausente."
+          grep -Fq 'outputs.upToDateWhen { false }' "$PROJECT_DIR/app/build.gradle.kts" || fail "Validação SHA-256 dos modelos precisa ocorrer em todo build."
+          grep -Fq 'maxLines = 2' "$J/tools/PulsePlayerScreen.kt" || fail "Faixa superior de letras não limita o texto a duas linhas."
+          grep -Fq '.height(42.dp)' "$J/tools/PulsePlayerScreen.kt" || fail "Faixa superior de letras não mantém altura compacta fixa."
+          grep -Fq 'Transport(state, accent, cb, large = !compact)' "$J/tools/PlayerInterfaces.kt" || fail "ClassicPlayer precisa compartilhar o mesmo transporte de todos os temas."
+          grep -Fq 'IconButton(onClick=cb.onLibrary' "$J/tools/PlayerInterfaces.kt" || fail "Biblioteca precisa ocupar a antiga posição inferior do download."
+          python3 - "$J/tools/PlayerInterfaces.kt" <<'PY_PLAYER_LAYOUT_CHECK'
+          import sys
+          src = open(sys.argv[1], encoding='utf-8').read()
+          transport = src.split('private fun Transport(', 1)[1].split('private fun BottomActions(', 1)[0]
+          bottom = src.split('private fun BottomActions(', 1)[1].split('@Composable', 1)[0]
+          if 'cb.onLibrary' in transport:
+              raise SystemExit('Biblioteca ainda está na fileira principal de transporte.')
+          if 'cb.onLibrary' not in bottom:
+              raise SystemExit('Biblioteca não foi movida para a fileira de ações inferiores.')
+          print('Biblioteca validada na antiga posição inferior; transporte principal preservado.')
+          PY_PLAYER_LAYOUT_CHECK
+          if grep -Fq 'PlayerInterfaceSpec("arc_light"' "$J/tools/PlayerInterfaces.kt"; then fail "Arc Light não pode permanecer selecionável."; fi
+          grep -Fq 'val curveColors = listOf(accent.copy' "$J/tools/PulsePlayerScreen.kt" || fail "A paleta CORES precisa recolorir a curva EQ do layout compacto."
+          if grep -Fq 'Color(0xFFD69A53)' "$J/tools/PulsePlayerScreen.kt" || grep -Fq 'Color(0xFFB97940)' "$J/tools/PulsePlayerScreen.kt"; then fail "Cor fixa do tema retrô impede a troca global pela paleta CORES."; fi
+          python3 - "$J/audio/SonusEqPresetCatalog.kt" <<'PY_PRESET_CHECK'
+          import re, sys
+          src = open(sys.argv[1], encoding="utf-8").read()
+          body = src.split("val curves:", 1)[1].split("\n    )", 1)[0]
+          entries = re.findall(r'"([^"]+)"\s+to\s+listOf\(([^)]*)\)', body)
+          if len(entries) != 47:
+              raise SystemExit(f"ERRO: esperado 47 registros internos (43 públicos + 4 legados ocultos), encontrados {len(entries)}")
+          curves = []
+          public_names = []
+          for name, values in entries:
+              nums = tuple(float(x.strip()) for x in values.split(","))
+              if len(nums) != 10:
+                  raise SystemExit(f"ERRO: preset {name} não possui 10 bandas")
+              curves.append(nums)
+              if not name.endswith(" (ASR)"):
+                  public_names.append(name)
+          if len(public_names) != 43:
+              raise SystemExit(f"ERRO: esperado exatamente 43 presets visíveis, encontrados {len(public_names)}")
+          if len(set(curves)) != 47:
+              raise SystemExit("ERRO: há curvas duplicadas no catálogo (incluindo registros legados ocultos)")
+          print("Catálogo validado: 43 presets públicos + 4 curvas legadas internas, todas com 10 bandas distintas.")
+          PY_PRESET_CHECK
+          if grep -Fq 'Compartilhar música' "$J/tools/PulsePlayerScreen.kt"; then fail "Opção Compartilhar música ainda está no Player."; fi
+          if [ -f "$J/integration/SonusEditBridge.kt" ]; then fail "A ponte do editor externo removido ainda está no pacote."; fi
+          grep -Fq 'Arrangement.SpaceEvenly' "$J/MainActivity.kt" || fail "Ajuste de encaixe do cartão Letras ausente no painel OWNER."
+          grep -Fq 'genrePageTracks' "$J/tools/SonusOnlineMusic.kt" || fail "estado de páginas da lista do gênero ausente."
+          grep -Fq 'Mais 20 músicas serão carregadas ao continuar deslizando' "$J/tools/SonusOnlineMusic.kt" || fail "indicação de carregamento progressivo do gênero ausente."
+          grep -Fq 'shuffleAll = true' "$J/tools/SonusOnlineMusic.kt" || fail "botão aleatório do gênero ausente."
+          grep -Fq 'Tocar tudo' "$J/tools/SonusOnlineMusic.kt" || fail "botão Tocar tudo do gênero ausente."
+          grep -Fq 'Modifier.fillMaxSize().blur(if (selectedGenre != null)' "$J/tools/SonusOnlineMusic.kt" || fail "fundo do painel de gênero deve receber desfoque."
+          grep -Fq 'Fechar gênero' "$J/tools/SonusOnlineMusic.kt" || fail "botão de fechar no rodapé do painel ausente."
+          # ── Requisitos herdados do CODE 06: gêneros, Rádio, LIVE e envio MP3 ──
+          grep -Fq '"Bossa Nova / MPB"' "$J/core/SonusMediaStandards.kt" || fail "catálogo central de gêneros ausente."
+          grep -Fq '"Triste / Depressão / Melancólico"' "$J/core/SonusMediaStandards.kt" || fail "categoria de humor explícita ausente."
+          grep -Fq 'SonusMediaStandards.canonicalGenre(raw)' "$J/tools/SonusOnlineMusic.kt" || fail "Stream/Rádio não usa normalizador central."
+          grep -Fq 'isAutomaticGenreStationEligible(selectedTracks)' "$J/tools/SonusOnlineMusic.kt" || fail "Rádio sob demanda deve validar a quantidade de faixas antes de criar a estação automática."
+          grep -Fq 'tracks.distinctBy { it.fileId }.size > 15' "$J/tools/SonusOnlineMusic.kt" || fail "estações automáticas devem exigir mais de 15 faixas únicas."
+          grep -Fq 'SONUS_STREAM_UPLOAD_BITRATE_KBPS = 192' "$J/stream/SonusStreamPlatform.kt" || fail "envio do Stream não está em MP3 192 kbps."
+          grep -Fq 'copyExistingMp3' "$J/audio/AudioConversionEngine.kt" || fail "otimização para MP3 já em 192 kbps ausente."
+          grep -Fq 'androidx.compose.material:material-icons-extended' "$APP_GRADLE" || fail "dependência de ícones Compose ausente."
+          grep -Fq 'import androidx.compose.material.icons.filled.Download' "$J/tools/SonusLiveStudio.kt" || fail "ícone Download da promoção LIVE sem importação."
+          grep -Fq 'import androidx.compose.material.icons.filled.Send' "$J/tools/SonusLiveStudio.kt" || fail "ícone Send/Telegram da promoção LIVE sem importação."
+          grep -Fq 'countdown_seconds' "$J/tools/SonusLiveStudio.kt" || fail "preferência da contagem regressiva da LIVE ausente."
+          grep -Fq 'countdownSeconds.coerceAtLeast(10)' "$J/tools/SonusLiveStudio.kt" || fail "contagem regressiva mínima de 10 segundos não está aplicada."
+          grep -Fq 'preparedQueue.size < 5' "$J/tools/SonusLiveMedia.kt" || fail "fila de pré-carregamento da LIVE não mantém até cinco cenas."
+          grep -Fq 'SonusLiveMediaRepo.takePrepared(latestTheme)' "$J/tools/SonusLiveMedia.kt" || fail "o palco precisa consumir a mesma fila preparada durante a configuração."
+          grep -Fq 'val latestPool by rememberUpdatedState(pool)' "$J/tools/SonusLiveMedia.kt" || fail "a primeira cena não pode depender da segunda listagem da galeria."
+          grep -Fq 'withTimeoutOrNull(14_000L)' "$J/tools/SonusLiveMedia.kt" || fail "a primeira imagem da LIVE precisa de timeout limitado."
+          grep -Fq 'while (isActive && activeSlide == null)' "$J/tools/SonusLiveMedia.kt" || fail "o palco precisa manter fallback enquanto tenta a primeira cena."
+          grep -Fq 'videoEnded.await()' "$J/tools/SonusLiveMedia.kt" || fail "vídeos da LIVE não aguardam a duração original."
+          grep -Fq 'while (isActive && preparedQueue.isEmpty())' "$J/tools/SonusLiveMedia.kt" || fail "a troca de cenas deve manter a imagem atual enquanto a reposição termina."
+          grep -Fq 'withContext(Dispatchers.Default)' "$J/tools/SonusLiveMedia.kt" || fail "classificação da mídia da LIVE deve sair da thread principal."
+          grep -Fq 'SonusBulkMetadataEditor' "$J/tools/SonusBulkMetadataEditor.kt" || fail "editor de metadados em lote ausente."
+          grep -Fq 'artistNameChangedAt' "$J/stream/SonusStreamPlatform.kt" || fail "controle de 30 dias do nome artístico ausente."
+          grep -Fq 'ARTIST_NAME_CHANGE_INTERVAL_MS = 30L' "$J/stream/SonusStreamPlatform.kt" || fail "janela de 30 dias do nome artístico divergente."
+          grep -Fq '2592000000' "$PROJECT_DIR/firebase-database-rules.json" || fail "regra Firebase de 30 dias ausente."
+          grep -Fq 'artistNameNextChangeAt' "$J/stream/SonusStreamPlatform.kt" || fail "data da próxima alteração de nome ausente."
+          grep -Fq 'publicArtistProfilesForOwner' "$J/stream/SonusStreamPlatform.kt" || fail "seletor OWNER deve obter os perfis públicos de artista."
+          grep -Fq 'selectedArtistId: String? = null' "$J/stream/SonusStreamPlatform.kt" || fail "backend de submissão deve receber o artista escolhido pelo OWNER."
+          grep -Fq '"artistOwnerUid" to selectedArtist.uid' "$J/stream/SonusStreamPlatform.kt" || fail "submissão deve guardar o dono do perfil artístico selecionado."
+          grep -Fq 'ActivityResultContracts.OpenMultipleDocuments()' "$J/stream/SonusStreamPlatform.kt" || fail "seleção real de vários arquivos de áudio ausente."
+          grep -Fq 'DialogProperties(usePlatformDefaultWidth = false)' "$J/stream/SonusStreamPlatform.kt" || fail "tela moderna de envio responsiva ausente."
+          grep -Fq 'LaunchedEffect(user.uid, tier, moderationMode)' "$J/stream/SonusStreamPlatform.kt" || fail "carregamento redundante de perfis do Stream não foi removido."
+          if grep -Fq 'Este é o artista da sua conta SONUS' "$J/stream/SonusStreamPlatform.kt"; then fail "cartão de perfil duplicado do artista voltou ao corpo da tela."; fi
+          grep -Fq 'Color(0xFF218B51)' "$J/stream/SonusStreamPlatform.kt" || fail "estado não selecionado de aprovadas deve permanecer verde vivo."
+          grep -Fq 'Color(0xFFB52E48)' "$J/stream/SonusStreamPlatform.kt" || fail "estado não selecionado de rejeitadas deve permanecer vermelho vivo."
+          grep -Fq 'Color(0xFF43F08D)' "$J/stream/SonusStreamPlatform.kt" || fail "estado selecionado de aprovadas deve ter realce mais intenso."
+          grep -Fq 'Color(0xFFFF718B)' "$J/stream/SonusStreamPlatform.kt" || fail "estado selecionado de rejeitadas deve ter realce mais intenso."
+          grep -Fq 'artistOwnerUid' "$PROJECT_DIR/firebase-database-rules.json" || fail "regras Firebase não validam o perfil artístico associado ao envio."
+          grep -Fq "!newData.child('artistId').exists() && !newData.child('artistOwnerUid').exists()" "$PROJECT_DIR/firebase-database-rules.json" || fail "regras Firebase devem exigir ambos os campos do artista ou nenhum (compatibilidade legada)."
+          grep -Fq 'it.artistId.isNotBlank()' "$J/stream/SonusStreamPlatform.kt" || fail "envio em lote do OWNER exige artista selecionado por faixa."
+          grep -Fq 'selectedArtistId = track.artistId' "$J/stream/SonusStreamPlatform.kt" || fail "cada faixa deve persistir o artista escolhido para ela."
+          grep -Fq 'Artista desta faixa' "$J/stream/SonusStreamPlatform.kt" || fail "seletor de artista individual por faixa ausente no lote."
+          grep -Fq 'withContext(Dispatchers.Default)' "$J/tools/SonusOnlineMusic.kt" || fail "processamento do catálogo Stream precisa sair da thread principal."
+          grep -Fq 'radioPreparing = true' "$J/tools/SonusOnlineMusic.kt" || fail "montagem da Rádio ainda não está isolada da interface."
+          grep -Fq 'creatorListsExpanded by rememberSaveable { mutableStateOf(false) }' "$J/stream/SonusStreamPlatform.kt" || fail "listas de artista não iniciam recolhidas."
+          if grep -Fq 'Esta música utiliza IA' "$J/stream/SonusStreamPlatform.kt"; then fail "controle de IA removido voltou ao formulário."; fi
+          grep -Fq 'SonusLiveMediaRepo.warmUp(context, count = 1' "$J/tools/SonusLiveStudio.kt" || fail "a LIVE deve preparar apenas uma cena inicial."
+          grep -Fq 'val canStart = remainingSeconds > 0L && when (source)' "$J/tools/SonusLiveStudio.kt" || fail "início da LIVE não pode depender do carregamento das cinco imagens."
+          if grep -Fq 'preparedSceneCount >= 5' "$J/tools/SonusLiveStudio.kt"; then fail "a LIVE não pode bloquear o início esperando cinco imagens."; fi
+          grep -Fq 'svc.state.first { it.playing && it.current != null }' "$J/tools/SonusLiveStudio.kt" || fail "LIVE precisa confirmar reprodução musical real antes de entrar no ar."
+          if grep -Fq 'LiveLyricLine' "$J/tools/SonusLiveStudio.kt"; then fail "texto central grande de letra não pode voltar à LIVE."; fi
+          if grep -Fq 'LiveNoLyricsPanel' "$J/tools/SonusLiveStudio.kt"; then fail "painel central antigo da LIVE não foi removido."; fi
+          grep -Fq 'Telegram  @sonusappupdate' "$J/tools/SonusLiveStudio.kt" || fail "bloco inferior compacto com Telegram da LIVE ausente."
+          grep -Fq 'LaunchedEffect(Unit)' "$J/tools/SonusLiveMedia.kt" || fail "palco de mídia deve iniciar sem aguardar a lista secundária."
+          grep -Fq 'delay(7_000L)' "$J/tools/SonusLiveStudio.kt" || fail "tempo de exibição dos controles da LIVE deve ser 8 segundos."
+          grep -Fq '2L * 60L * 1000L' "$J/tools/SonusOnlineMusic.kt" || fail "cache curto dos metadados do Stream ausente."
+          grep -Fq '3L * 60L * 1000L' "$J/tools/SonusOnlineMusic.kt" || fail "cache curto do catálogo do Stream ausente."
+          grep -Fq 'sonusonline://pcloud' "$J/tools/SonusOnlineMusic.kt" || fail "deep link interno de compartilhamento ausente."
+          grep -Fq 'AUDIO_RENAME' "$J/tools/ToolSuiteScreen.kt" || fail "separação de renomear áudios ausente."
+          grep -Fq 'SONUS_GALLERY_PUBLIC_CODES' "$J/tools/SonusLiveMedia.kt" || fail "galerias adicionais para Live ausentes."
+          grep -Fq 'LiveContentFamily.RELIGIOUS' "$J/tools/SonusLiveMedia.kt" || fail "filtro de mídia religiosa da LIVE ausente."
+          grep -Fq 'LiveContentFamily.SECULAR' "$J/tools/SonusLiveMedia.kt" || fail "filtro de mídia secular da LIVE ausente."
+          grep -Fq 'SonusOfflineDownloadManager.download' "$J/tools/SonusOnlineMusic.kt" || fail "downloads offline do Stream ausentes."
+          grep -Fq 'Biblioteca offline' "$J/tools/SonusOnlineMusic.kt" || fail "biblioteca offline do Stream ausente."
+          grep -Fq 'SONUS Stream • Offline' "$J/tools/SonusOnlineMusic.kt" || fail "modo offline exclusivo do Stream ausente."
+          grep -Fq 'NetworkCapabilities.NET_CAPABILITY_VALIDATED' "$J/tools/SonusOnlineMusic.kt" || fail "detecção de conectividade validada ausente."
+          grep -Fq 'downloadCollection(list, "Álbum' "$J/tools/SonusOnlineMusic.kt" || fail "download de álbum ausente."
+          grep -Fq 'downloadCollection(pts, "Playlist' "$J/tools/SonusOnlineMusic.kt" || fail "download de playlist ausente."
+          grep -Fq 'SonusOfflineDownloadManager.fileFor' "$J/tools/PulsePlayerService.kt" || fail "reprodução offline no serviço do player ausente."
+          grep -Fq 'ToolId.AUDIO_MONITOR' "$J/tools/ToolSuiteScreen.kt" || fail "Monitor de Áudio não foi ligado à categoria de músicas."
+          grep -Fq 'SonusAudioMonitorScreen' "$J/tools/ToolSuiteScreen.kt" || fail "tela do Monitor de Áudio ausente."
+          grep -Fq 'require(isSafeHeadphone(output))' "$J/tools/SonusAudioMonitor.kt" || fail "bloqueio de saída de caixa de som ausente."
+          grep -Fq 'SONUS EDIT LITE' "$J/tools/PulsePlayerScreen.kt" || fail "atalho principal Sonus Edit Lite ausente no Player."
+          if grep -Fq 'Compartilhar música' "$J/tools/PulsePlayerScreen.kt"; then fail "atalho de compartilhar música não deve existir no Player."; fi
+          grep -Fq 'SONUS_SHARE_BASE' "$J/tools/SonusOnlineMusic.kt" || fail "base HTTPS pública de compartilhamento ausente no app."
+          grep -Fq 'exports.sonusShare = onRequest' "$PROJECT_DIR/functions/sonus-stream-proxy/index.js" || fail "função HTTPS de compartilhamento ausente."
+          grep -Fq 'kZwyCSJZUAqjAxCrE9zIvbA8MWP1rXS3YaAV' "$J/tools/SonusOnlineMusic.kt" || fail "terceira galeria Social Edit ausente."
+          grep -Fq 'NEGATIVE_TTL_MS' "$J/tools/SonusLyricsResolver.kt" || fail "cache negativo do LRCLIB ausente."
+          grep -Fq 'SonusLockScreenController.contentIntent' "$J/tools/PulsePlayerService.kt" || fail "tela de bloqueio não ligada ao serviço."
+          grep -Fq 'android:showWhenLocked="true"' "$MANIFEST" || fail "atividade da tela de bloqueio ausente no manifest."
+          grep -Fq 'Theme.SonusLockScreen' "$RES/values/styles.xml" || fail "tema da tela de bloqueio ausente."
 
-          # Version/dependency/signing contracts.
-          grep -q 'applicationId = "com.sonusstudios.sonusedit"' app/build.gradle.kts
-          grep -q 'versionCode = 17' app/build.gradle.kts
-          grep -q 'versionName = "1.0.7"' app/build.gradle.kts
-          grep -q 'versionName=1.0.7' BUILD_VERSION.txt
-          grep -q 'versionCode=17' BUILD_VERSION.txt
-          grep -q 'Text("1.0.7"' app/src/main/java/com/sonusstudios/sonusedit/ui/HomeScreen.kt
-          grep -q 'Text("1.0.7"' "$FLOW"
-          grep -q 'Versão 1.0.7' app/src/main/java/com/sonusstudios/sonusedit/ui/AboutScreen.kt
-          grep -q '1.0.7 • CODE 17' app/src/main/java/com/sonusstudios/sonusedit/ui/AboutScreen.kt
-          ! grep -q 'io.github.junkfood02.youtubedl-android' app/build.gradle.kts
-          ! grep -q 'com.yausername.youtubedl_android' "$LINK"
-          ! grep -q 'com.yausername.ffmpeg' "$LINK"
-          grep -q 'dev.ffmpegkit-maintained:whisper-android:1.0.0' app/build.gradle.kts
-          test "$(grep -c 'androidx.media3:media3-.*:1.10.1' app/build.gradle.kts)" -eq 5
-          grep -q 'android:extractNativeLibs="true"' app/src/main/AndroidManifest.xml
+          # ── Regressões Kotlin corrigidas no Build Fix ──
+          grep -Fq 'dailyRecords: Int = 0' "$J/data/BackupManager.kt" || fail "campo de registros diários ausente no manifesto do backup."
+          grep -Fq 'dailyRecords = state.preferences.appUsageDailyMillis.size' "$J/data/BackupManager.kt" || fail "contagem de registros diários do backup ausente."
+          grep -Fq 'import androidx.compose.foundation.gestures.detectTapGestures' "$J/tools/SonusPdfStudio.kt" || fail "import do gesto de toque ausente no PDF Studio."
+          grep -Fq 'val canvasSize = this.size' "$J/tools/SonusPdfStudio.kt" || fail "dimensões Float do Canvas não estão sendo usadas no PDF Studio."
+          if grep -Fq 'refreshGlobalFinancialLearning()' "$J/MainActivity.kt"; then
+            fail "chamada órfã para refreshGlobalFinancialLearning (rotina não presente nesta versão) encontrada."
+          fi
 
-          # CODE17 SONUS Link Engine: direct media transport without bundled extractors.
-          grep -q 'SonusLinkEngine(context.applicationContext)' "$LINK"
-          grep -q 'HttpURLConnection' "$LINK_ENGINE"
-          grep -q 'BufferedInputStream' "$LINK_ENGINE"
-          grep -q 'SonusLinkSourceClassifier' "$LINK_ENGINE"
-          grep -q 'activeConnections' "$LINK_ENGINE"
-          grep -q 'CACHE_MAX_AGE_MS' "$LINK_ENGINE"
-          grep -q 'linkImportJob?.isActive == true' "$FLOW"
-          grep -q 'LinkImportFailure' "$FLOW"
-          test -f app/src/test/java/com/sonusstudios/sonusedit/create/SonusLinkEngineTest.kt
-          grep -q 'ExportRecoveryPolicy14.shouldRetryInChunks' "$EXPORTER"
-          grep -q 'setMaxDelayBetweenMuxerSamplesMs' "$EXPORTER"
-          grep -q 'CaptionEtaEstimator14' "$FLOW"
-          grep -q 'ENGINE_VERSION = 16' "$WHISPER"
+          # ── Funções que NÃO podem voltar (YouTube e distribuição foram removidos) ──
+          for f in tools/YouTubeKaraoke.kt tools/YouTubePlaylistHub.kt core/RoyaltyEngine.kt core/DistributorRules.kt core/AudioDistributorCatalog.kt \
+                   core/RoyaltyReferenceCatalog.kt core/StreamMetricsEngine.kt export/ReportPdfManager.kt data/FinancialLearningCloud.kt; do
+            [ ! -f "$J/$f" ] || fail "arquivo removido não deve voltar: $f"
+          done
+          if grep -R -I -l -e 'YOUTUBE_API_KEY' -e 'androidyoutubeplayer' "$PROJECT_DIR/app/src" "$APP_GRADLE" >/dev/null 2>&1; then
+            fail "referências ao YouTube não devem voltar (YOUTUBE_API_KEY/androidyoutubeplayer)."
+          fi
+          if grep -R -I -l -e 'DistributionHubScreen' -e 'DistributorInfoScreen' -e 'AppPage.DISTRIBUTION' "$J" >/dev/null 2>&1; then
+            fail "a função de distribuição e pagamentos não deve voltar."
+          fi
+          if ls "$RES"/raw/radio_*.mp3 >/dev/null 2>&1; then
+            fail "locuções embutidas (res/raw/radio_*.mp3) devem ficar só na nuvem."
+          fi
+          grep -Fq 'Checar atualização' "$J/MainActivity.kt" && fail "opção 'Checar atualização' foi removida das Configurações."
+          grep -Fq 'Opções de privacidade' "$J/MainActivity.kt" && fail "opção 'Opções de privacidade' foi removida das Configurações."
 
-          # Kotlin 2.x nullability/type-inference regression guard (code23 build fix 1).
-          ! grep -q 'runCatching(Uri::parse)' "$ROUTER"
-          ! grep -q 'let(::loadMediaBitmap18)' "$FLOW"
-          grep -q 'runCatching { Uri.parse(raw) }' "$ROUTER"
-          grep -q 'loadRemoteAssetThumbnail18' "$FLOW"
+          # ── Ícones (logo rosa + paleta de 26 opções) ──
+          ADAPTIVE_COUNT="$(ls "$RES"/mipmap-anydpi-v26/ic_launcher_*.xml | wc -l | tr -d ' ')"
+          [ "$ADAPTIVE_COUNT" -ge 28 ] || fail "ícones adaptativos alternativos incompletos ($ADAPTIVE_COUNT)."
+          for f in ic_launcher.xml ic_launcher_round.xml; do [ -f "$RES/mipmap-anydpi-v26/$f" ] || fail "$f adaptativo ausente."; done
+          [ -f "$RES/drawable-nodpi/ic_mono_symbol.webp" ] || fail "camada monocromática ausente."
+          if grep -Fq 'R.mipmap.ic_launcher_' "$J/core/AppIconCatalog.kt"; then fail "prévia de ícone não pode usar mipmap adaptativo (painterResource falha)."; fi
 
-          # SONUS -> Edit bridge: legacy + rich explicit contract.
-          grep -q 'data class SonusTrack' "$ROUTER"
-          grep -q 'EXTRA_AUDIO_URI' "$ROUTER"
-          grep -q 'EXTRA_CAPTIONS_JSON' "$ROUTER"
-          grep -q 'Intent.ACTION_SEND' "$ROUTER"
-          grep -q 'streamAssetMatches' "$FLOW"
-          grep -q 'ensureStreamCatalog(true)' "$FLOW"
-          grep -q 'parseIncomingCaptions' "$FLOW"
-          grep -q 'Carregando música compartilhada pelo SONUS' "$APP"
-          grep -q 'const val SONUS_PACKAGE = "com.sonusstudios.streampulse"' "$CONTRACT"
+          # ── XML válido ──
+          for xml in "$MANIFEST" "$RES"/values/*.xml "$RES"/mipmap-anydpi-v26/*.xml; do
+            python3 -c "import sys,xml.dom.minidom as m; m.parse(sys.argv[1])" "$xml" || fail "XML inválido: $xml"
+          done
 
-          # Compact editing GPS; Home remains a separate screen.
-          grep -q 'private fun CreateHeader18' "$FLOW"
-          grep -q 'Icons.Default.MusicNote' "$FLOW"
-          grep -q 'Icons.Default.Image' "$FLOW"
-          grep -q 'Icons.Default.AutoAwesome' "$FLOW"
-          grep -q 'Icons.Default.FactCheck' "$FLOW"
-          grep -q 'Color(0xFF6F2027)' "$FLOW"
-          ! grep -q 'StepIndicator18' "$FLOW"
+          # ── Firebase Auth / Google Sign-In: validar projeto, pacote e OAuth antes do build ──
+          GS="$PROJECT_DIR/app/google-services.json"
+          [ -f "$GS" ] || fail "app/google-services.json ausente; login Google não estará configurado."
+          python3 - "$GS" <<'PY_FIREBASE_CHECK'
+          import json, sys
+          path = sys.argv[1]
+          expected_project = "streenpulse"
+          expected_package = "com.sonusstudios.streampulse"
+          expected_sha1 = "8d5398c915e1f05ce6c144caee5ad91e31dac092"
+          try:
+              with open(path, encoding="utf-8") as f:
+                  data = json.load(f)
+          except Exception as exc:
+              raise SystemExit(f"ERRO: google-services.json inválido: {exc}")
+          project = data.get("project_info", {}).get("project_id")
+          if project != expected_project:
+              raise SystemExit(f"ERRO: Firebase project_id incorreto: {project!r}; esperado {expected_project!r}.")
+          app_clients = [c for c in data.get("client", [])
+                         if c.get("client_info", {}).get("android_client_info", {}).get("package_name") == expected_package]
+          if not app_clients:
+              raise SystemExit(f"ERRO: google-services.json não contém o pacote {expected_package}.")
+          android_ok = any(
+              o.get("client_type") == 1 and
+              o.get("android_info", {}).get("package_name") == expected_package and
+              o.get("android_info", {}).get("certificate_hash", "").lower().replace(":", "") == expected_sha1
+              for c in app_clients for o in c.get("oauth_client", [])
+          )
+          if not android_ok:
+              raise SystemExit("ERRO: cliente OAuth Android ausente para a SHA-1 da assinatura permanente.")
+          web_ok = any(o.get("client_type") == 3 for c in app_clients for o in c.get("oauth_client", []))
+          if not web_ok:
+              raise SystemExit("ERRO: cliente OAuth Web (client_type 3) ausente; default_web_client_id não será gerado.")
+          print("Firebase validado: projeto, pacote, SHA-1 Android e cliente OAuth Web corretos.")
+          PY_FIREBASE_CHECK
+          echo "Validação estática 1.0 concluída."
 
-          # Stream: artwork, shuffle and temporary search/list.
-          grep -q 'MusicArtwork18' "$FLOW"
-          grep -q 'Icons.Default.Shuffle' "$FLOW"
-          grep -q 'showStreamBrowser' "$FLOW"
-          grep -q 'Pesquisar música ou artista' "$FLOW"
-          grep -q 'chooseSpecificStream' "$FLOW"
-
-          # Gallery code23: no runtime artist DB, no automatic image marking, fixed controls + shuffled pool.
-          test ! -f app/src/main/assets/sonus_artist_genres.db
-          grep -q 'artistCategory = null' "$FLOW"
-          grep -q 'galleryShuffleNonce' "$FLOW"
-          grep -q 'SmartImageSelector.searchManualGallery' "$FLOW"
-          grep -q 'Text("Imagens e vídeos"' "$FLOW"
-          grep -q 'Text("$totalSelected / $limit"' "$FLOW"
-          grep -q 'FOTOS/VÍDEOS' "$FLOW"
-          grep -q 'only the gallery scrolls' "$FLOW"
-          grep -q 'Color(0xFF287FA8)' "$FLOW"
-          python3 - <<'PY2'
-          from pathlib import Path
-          t=Path('app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt').read_text()
-          # New project selection starts empty; no automatic assignment should exist.
-          assert 'var selectedRemoteStableKeys by remember(resumeDraft)' in t
-          assert 'RemoteImageSelection14.fileIds(selectedRemoteStableKeys)' in t
-          assert 'selectedRemoteIds = suggested' not in t
-          assert 'artistGenreResolver' not in t
-          PY2
-
-          # 9:16/16:9 contract remains intact.
-          grep -q 'const val VERTICAL = "9:16"' "$MODELS"
-          grep -q 'const val HORIZONTAL = "16:9"' "$MODELS"
-          grep -q 'VIDEO_EXTRACTED' "$MODELS"
-          grep -q 'DurationPreset.INFINITE' "$FLOW"
-          grep -q 'kZpRVYJZCVInrVg53M8t2JVi0nyFVjrg28ik' "$CATALOG"
-          grep -q 'class PCloudHorizontalImageRepository' "$CATALOG_REPO"
-          grep -q 'draft.outputWidth()' "$EXPORTER"
-          grep -q 'draft.outputHeight()' "$EXPORTER"
-
-          # Style/Review redesign.
-          grep -q 'onParticlesEnabled' "$FLOW"
-          grep -q 'private fun ReviewPreview23' "$FLOW"
-          grep -q 'modifier.height(58.dp)' "$FLOW"
-          grep -q 'player.seekTo(startMs + next)' "$FLOW"
-          grep -q 'captions.lastOrNull' "$FLOW"
-          python3 - <<'PY2'
-          from pathlib import Path
-          t=Path('app/src/main/java/com/sonusstudios/sonusedit/ui/CreateFlowScreen18.kt').read_text()
-          review_start=t.index('private fun ReviewStep18(')
-          review=t[review_start:t.index('private fun ReviewPreview23(')]
-          before_review=t[:review_start]
-          # CODE12 intentionally moves Particles into Review and Captions into Style/Sync.
-          assert 'ReviewLine18(' not in review
-          assert 'particlesEnabled' in review
-          assert 'onParticlesEnabled' in review
-          assert 'Partículas neste vídeo' in review
-          assert 'Legendas neste vídeo' not in review
-          assert 'Legendas neste vídeo' in before_review
-          assert 'onCaptionsEnabled' in before_review
-          PY2
-
-          # Long Whisper: sequential decode, incremental chunk cache, release model.
-          grep -q 'LONG_PROJECT_MS = 10L \* 60_000L' "$WHISPER"
-          grep -q 'LONG_CHUNK_MS = 45_000L' "$WHISPER"
-          grep -q 'extractSequentialChunks' "$WHISPER"
-          grep -q 'extractSequentialChunks' "$WAV"
-          grep -q 'Legenda longa • progresso salvo' "$WHISPER"
-          grep -q 'chunkCache.writeText' "$WHISPER"
-          grep -q 'Whisper.releaseModel' "$WHISPER"
-          grep -q 'MODEL_NAME = "ggml-small.bin"' "$WHISPER"
-          grep -q 'ENGINE_VERSION = 16' "$WHISPER"
-
-          # Long export: bounded chunks, retry only failed chunk, mux without second encode.
-          grep -q 'LONG_EXPORT_THRESHOLD_MS = 10L \* 60_000L' "$EXPORTER"
-          grep -q 'LONG_EXPORT_SEGMENT_MS = 4L \* 60_000L' "$EXPORTER"
-          grep -q 'startLongExport' "$EXPORTER"
-          grep -q 'buildLongSegmentDrafts' "$EXPORTER"
-          grep -q 'concatenateMp4' "$EXPORTER"
-          grep -q 'MediaMuxer' "$EXPORTER"
-          grep -q 'if (retry < 1)' "$EXPORTER"
-          grep -q 'Use a fresh extractor per track' "$EXPORTER"
-          grep -q 'visualDurationsMs' "$MODELS"
-          grep -q 'visualSourceOffsetsMs' "$MODELS"
-
-          # Particle assets: black MP4 unchanged; green 60fps MP4 re-encoded (H.264 High, same 1080x1920/60fps/961 frames) to fit the 25 MB GitHub limit. Code21 horizontal crop remains unchanged.
-          grep -q '!draft.particlesEnabled' "$EXPORTER"
-          grep -q 'Presentation.LAYOUT_SCALE_TO_FIT_WITH_CROP' "$EXPORTER"
-          echo 'f92090af17ebd5b4c9f47ab05b09587e9b9b17f7bc698fae80703084c1d4ca69  app/src/main/res/raw/sonus_particles_green_60fps.mp4' | shasum -a 256 -c -
-          echo '79fd098ff8d51c9b8db622f502792d1bf76cf6a54a7c3bd2afbae591fea525bc  app/src/main/res/raw/sonus_particles_black_30fps.mp4' | shasum -a 256 -c -
-          ! grep -R -q 'effect_particles_source.webp\|drawAnimatedEffect\|atlasFrames' app/src/main
-
-          # CODE16: automatic-caption progress and full-frame export stability.
-          grep -q 'warmRemoteAssetThumbnails18' "$FLOW"
-          grep -q 'sonus_gallery_thumbs_v3' "$FLOW"
-          grep -q 'assignmentsForExport' app/src/main/java/com/sonusstudios/sonusedit/create/VisualTransitionPreferences.kt
-          grep -q 'ExportEtaEstimator15' app/src/main/java/com/sonusstudios/sonusedit/media/ExportForegroundService.kt
-
-          # Existing safety contracts.
-          grep -q 'DurationPreset(0, "∞", untilEnd = true)' "$MODELS"
-          ! grep -q 'DurationPreset(90' "$MODELS"
-          ! grep -q 'DurationPreset(120' "$MODELS"
-          grep -q 'HARD_IMAGE_CAP = 50' "$MODELS"
-          grep -q 'draft.exportFps in setOf(30, 60)' "$EXPORTER"
-          grep -q 'LanczosResample.scaleToFit' "$EXPORTER"
-          grep -q 'Paint.Style.STROKE' "$VISUAL"
-          grep -q 'Color.WHITE else Color.BLACK' "$VISUAL"
-          grep -q 'import androidx.compose.material.icons.filled.Image' "$FLOW"
-          ! grep -q 'Image as ImageIcon' "$FLOW"
-
-          # Code03: multi-folder Gallery, media video thumbnails, cooldown, caption correction, premium and logo.
-          grep -q 'MUSIC_PUBLIC_CODE_TERTIARY' "$CATALOG"
-          grep -q 'IMAGE_PUBLIC_CODE_TERTIARY' "$CATALOG"
-          grep -q 'IMAGE_HORIZONTAL_PUBLIC_CODE_SECONDARY' "$CATALOG"
-          grep -q 'galleryMediaExt18 = imageExt18 + videoExt18' "$FLOW"
-          grep -q 'loadRemoteAssetThumbnail18' "$FLOW"
-          grep -q 'searchManualGallery' app/src/main/java/com/sonusstudios/sonusedit/create/SmartImageSelector.kt
-          grep -q 'VERTICAL_PROJECTS_TO_BLOCK = 20' app/src/main/java/com/sonusstudios/sonusedit/create/SmartImageSelector.kt
-          grep -q 'HORIZONTAL_PROJECTS_TO_BLOCK = 15' app/src/main/java/com/sonusstudios/sonusedit/create/SmartImageSelector.kt
-          grep -q 'onCaptionEdit' app/src/main/java/com/sonusstudios/sonusedit/ui/AutoCaptionsScreen.kt
-          grep -q 'onCaptionEdit' "$FLOW"
-          grep -q 'Sonus Edit Premium' app/src/main/java/com/sonusstudios/sonusedit/ui/PremiumPlansScreen.kt || grep -q 'SONUS EDIT PREMIUM' app/src/main/java/com/sonusstudios/sonusedit/ui/PremiumPlansScreen.kt
-          test -f app/src/main/res/drawable-nodpi/sonus_edit_icon_foreground.png
-          test -f app/src/main/res/drawable-nodpi/sonus_edit_logo_center.png
-
-          # Source guards for code24 UI, colors, project compatibility and original particle SHA256.
-          test -f app/src/main/java/com/sonusstudios/sonusedit/create/CaptionEtaEstimator13.kt
-          test -f app/src/test/java/com/sonusstudios/sonusedit/create/Code27CaptionEtaTest.kt
-          # Includes low-memory Gallery, audio-playback and review-screen maintenance guards.
-          python3 scripts/validate_v1_0_7_code17.py
-          test -f app/src/test/java/com/sonusstudios/sonusedit/create/Code24LyricPaletteTest.kt
-          test -f app/src/main/java/com/sonusstudios/sonusedit/media/PCloudEffectLibrary.kt
-
-          echo "Sonus Edit 1.0.7 / code17 static validation passed."
-
-      - name: Restore persistent Sonus Edit signing
+      - name: Publicar regras Firebase (opcional)
         script: |
           set -euo pipefail
-          # Permanent Sonus Edit signing key, created for version 0.0.1 / code01.
-          # It lives in this file on purpose: nothing depends on the Codemagic cache any more,
-          # so the APK signature cannot change by accident. Keep a private backup of this key.
-          SIGN_DIR="$HOME/.sonus-edit-signing-v1"
-          KEYSTORE="$SIGN_DIR/sonus-edit-dev.jks"
-          mkdir -p "$SIGN_DIR" "$CM_BUILD_DIR/artifacts"
-          python3 - "$KEYSTORE" <<'PY'
-          import base64, sys
-          data = "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"
-          open(sys.argv[1], "wb").write(base64.b64decode(data))
-          PY
-          SONUS_KEYSTORE_PASSWORD='U7M6CFm6CA453sVu1VtvRIypdYFW'
-          SONUS_KEY_ALIAS='sonusedit'
-          SONUS_KEY_PASSWORD='U7M6CFm6CA453sVu1VtvRIypdYFW'
-          chmod 600 "$KEYSTORE"
-          keytool -list -keystore "$KEYSTORE" -storepass "$SONUS_KEYSTORE_PASSWORD" -alias "$SONUS_KEY_ALIAS" >/dev/null
-          keytool -list -v -keystore "$KEYSTORE" -storepass "$SONUS_KEYSTORE_PASSWORD" -alias "$SONUS_KEY_ALIAS" | sed -n '/SHA256:/p' | tee "$CM_BUILD_DIR/artifacts/KEY_SHA256.txt"
-          echo "SONUS_KEYSTORE_PATH=$KEYSTORE" >> "$CM_ENV"
-          echo "SONUS_KEYSTORE_PASSWORD=$SONUS_KEYSTORE_PASSWORD" >> "$CM_ENV"
-          echo "SONUS_KEY_ALIAS=$SONUS_KEY_ALIAS" >> "$CM_ENV"
-          echo "SONUS_KEY_PASSWORD=$SONUS_KEY_PASSWORD" >> "$CM_ENV"
-          echo "Using the permanent Sonus Edit signer."
+          if [ -z "${FIREBASE_SERVICE_ACCOUNT_JSON_B64:-}" ]; then
+            echo "INFO: credencial Firebase não configurada no Codemagic; as regras não serão publicadas automaticamente."
+            echo "Se houver Permission denied em produção, publique firebase-database-rules.json no projeto streenpulse."
+            exit 0
+          fi
+          python3 -c 'import base64, os; open("/tmp/sonus-firebase-service-account.json", "wb").write(base64.b64decode(os.environ["FIREBASE_SERVICE_ACCOUNT_JSON_B64"]))'
+          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sonus-firebase-service-account.json
+          trap 'rm -f /tmp/sonus-firebase-service-account.json' EXIT
+          cd "$PROJECT_DIR"
+          npx --yes firebase-tools@latest deploy --only database --project streenpulse --non-interactive
+          rm -f /tmp/sonus-firebase-service-account.json
+          echo "Regras Firebase publicadas com sucesso."
 
-      - name: Install Gradle 8.13
+      - name: Publicar link HTTPS de compartilhamento (automático com credencial)
         script: |
           set -euo pipefail
-          GRADLE_VERSION=8.13
+          if [ -z "${FIREBASE_SERVICE_ACCOUNT_JSON_B64:-}" ]; then
+            echo "AVISO: sonusShare não foi publicada. Configure FIREBASE_SERVICE_ACCOUNT_JSON_B64 como variável segura para ativar links de compartilhamento."
+            exit 0
+          fi
+          python3 -c 'import base64, os; open("/tmp/sonus-firebase-service-account-share.json", "wb").write(base64.b64decode(os.environ["FIREBASE_SERVICE_ACCOUNT_JSON_B64"]))'
+          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sonus-firebase-service-account-share.json
+          trap 'rm -f /tmp/sonus-firebase-service-account-share.json' EXIT
+          cd "$PROJECT_DIR"
+          npx --yes firebase-tools@latest deploy --only functions:sonusShare,hosting --project streenpulse --non-interactive
+          echo "Página HTTPS e função de compartilhamento publicadas no Firebase Hosting."
+
+      - name: Verificar Android SDK 36
+        script: |
+          set -euo pipefail
+          SDK_ROOT="${ANDROID_SDK_ROOT:-${ANDROID_HOME:-}}"
+          if [ -z "$SDK_ROOT" ]; then
+            echo "ERRO: Android SDK não encontrado no ambiente Codemagic."
+            exit 1
+          fi
+          echo "sdk.dir=$SDK_ROOT" > "$PROJECT_DIR/local.properties"
+          echo "ANDROID_SDK_ROOT_RESOLVED=$SDK_ROOT" >> "$CM_ENV"
+          NEED_PLATFORM=0
+          NEED_BUILD_TOOLS=0
+          [ -d "$SDK_ROOT/platforms/android-36" ] || NEED_PLATFORM=1
+          [ -d "$SDK_ROOT/build-tools/36.0.0" ] || NEED_BUILD_TOOLS=1
+          if [ "$NEED_PLATFORM" -eq 1 ] || [ "$NEED_BUILD_TOOLS" -eq 1 ]; then
+            SDKMANAGER=""
+            for CANDIDATE in \
+              "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" \
+              "$SDK_ROOT/cmdline-tools/bin/sdkmanager" \
+              "$(command -v sdkmanager 2>/dev/null || true)"; do
+              if [ -n "$CANDIDATE" ] && [ -x "$CANDIDATE" ]; then SDKMANAGER="$CANDIDATE"; break; fi
+            done
+            [ -n "$SDKMANAGER" ] || { echo "ERRO: SDK 36 ausente e sdkmanager não localizado."; exit 1; }
+            yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+            PACKAGES=()
+            [ "$NEED_PLATFORM" -eq 1 ] && PACKAGES+=("platforms;android-36")
+            [ "$NEED_BUILD_TOOLS" -eq 1 ] && PACKAGES+=("build-tools;36.0.0")
+            "$SDKMANAGER" "${PACKAGES[@]}"
+          fi
+          test -d "$SDK_ROOT/platforms/android-36"
+          test -d "$SDK_ROOT/build-tools/36.0.0"
+          echo "Android SDK 36 / Build Tools 36.0.0: OK"
+
+      - name: Preparar Gradle 8.13
+        script: |
+          set -euo pipefail
           GRADLE_HOME_CM="$HOME/.gradle/codemagic/gradle-$GRADLE_VERSION"
           if [ ! -x "$GRADLE_HOME_CM/bin/gradle" ]; then
             mkdir -p "$HOME/.gradle/codemagic"
-            curl --fail --location --retry 3 "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" -o "/tmp/gradle-${GRADLE_VERSION}.zip"
+            curl --fail --location --retry 3 \
+              "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip" \
+              -o "/tmp/gradle-${GRADLE_VERSION}.zip"
+            rm -rf "$GRADLE_HOME_CM"
             unzip -q "/tmp/gradle-${GRADLE_VERSION}.zip" -d "$HOME/.gradle/codemagic"
           fi
-          echo "GRADLE_CM=$GRADLE_HOME_CM/bin/gradle" >> "$CM_ENV"
           "$GRADLE_HOME_CM/bin/gradle" --version
+          echo "GRADLE_CM=$GRADLE_HOME_CM/bin/gradle" >> "$CM_ENV"
 
-      - name: Compile debug Kotlin
+      - name: Compilar APK SONUS
         script: |
           set -euo pipefail
-          cd "$SONUS_EDIT_PROJECT_DIR"
-          "$GRADLE_CM" --no-daemon --stacktrace :app:compileDebugKotlin
+          cd "$PROJECT_DIR"
+          mkdir -p "$CM_BUILD_DIR/sonus_artifacts"
+          set +e
+          "$GRADLE_CM" \
+            --no-daemon \
+            --stacktrace \
+            --max-workers=2 \
+            :app:assembleDebug 2>&1 | tee "$CM_BUILD_DIR/sonus_artifacts/BUILD.log"
+          GRADLE_STATUS=${PIPESTATUS[0]}
+          set -e
+          if [ "$GRADLE_STATUS" -ne 0 ]; then
+            echo "ERRO: assembleDebug falhou. Consulte sonus_artifacts/BUILD.log"
+            exit "$GRADLE_STATUS"
+          fi
 
-      - name: Unit tests
+      - name: Conferir assinatura do APK e preparar download
         script: |
           set -euo pipefail
-          cd "$SONUS_EDIT_PROJECT_DIR"
-          "$GRADLE_CM" --no-daemon --stacktrace :app:testDebugUnitTest
+          APK="$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk"
+          if [ ! -f "$APK" ]; then
+            echo "ERRO: assembleDebug terminou sem gerar app-debug.apk."
+            exit 1
+          fi
+          APKSIGNER="$ANDROID_SDK_ROOT_RESOLVED/build-tools/36.0.0/apksigner"
+          if [ -z "${SONUS_KEYSTORE_PATH:-}" ]; then
+            echo "ERRO: SONUS_KEYSTORE_PATH ausente. Recusando entregar APK sem assinatura oficial."
+            exit 1
+          fi
+          if [ ! -x "$APKSIGNER" ]; then
+            echo "ERRO: apksigner não encontrado; não é seguro entregar APK sem conferir a assinatura."
+            exit 1
+          fi
+          CERT="$("$APKSIGNER" verify --print-certs "$APK" | grep -m1 'certificate SHA-256 digest' | sed 's/.*digest: *//' | tr -d ' ' | tr 'A-F' 'a-f')"
+          if [ "$CERT" != "ff38fea1785871c7189c1820223be450df58d73dcf9c58b7ca2e5df7e501cb6f" ]; then
+            echo "ERRO: o APK NÃO foi assinado com a chave permanente oficial do SONUS ($CERT)."
+            exit 1
+          fi
+          echo "Assinatura do APK conferida: chave permanente sonus-edit-dev.jks (SHA-256 oficial)."
+          mkdir -p "$CM_BUILD_DIR/sonus_artifacts"
+          cp "$APK" "$CM_BUILD_DIR/sonus_artifacts/SONUS.apk"
+          cd "$CM_BUILD_DIR/sonus_artifacts"
+          shasum -a 256 SONUS.apk > SHA256SUMS.txt
+          ls -lh SONUS.apk SHA256SUMS.txt
+          echo "SONUS.apk 1.0 (code 10) pronto nos Artifacts do Codemagic."
 
-      - name: Build debug APK
-        script: |
-          set -euo pipefail
-          cd "$SONUS_EDIT_PROJECT_DIR"
-          "$GRADLE_CM" --no-daemon --stacktrace :app:assembleDebug
-          APK="$(find app/build/outputs/apk/debug -maxdepth 1 -name '*.apk' -type f | head -n 1)"
-          test -n "$APK"
-          mkdir -p "$CM_BUILD_DIR/artifacts"
-          cp "$APK" "$CM_BUILD_DIR/artifacts/SonusEdit.apk"
-          keytool -printcert -jarfile "$CM_BUILD_DIR/artifacts/SonusEdit.apk" | sed -n '/SHA256:/p' > "$CM_BUILD_DIR/artifacts/SIGNER_SHA256.txt" || true
-          shasum -a 256 "$CM_BUILD_DIR/artifacts/SonusEdit.apk" | tee "$CM_BUILD_DIR/artifacts/SHA256.txt"
     artifacts:
-      - artifacts/SonusEdit.apk
-      - artifacts/SHA256.txt
-      - artifacts/SIGNER_SHA256.txt
-      - artifacts/KEY_SHA256.txt
-      - _sonus_edit/**/app/build/test-results/**
-      - _sonus_edit/**/app/build/reports/**
+      - sonus_artifacts/SONUS.apk
+      - sonus_artifacts/SHA256SUMS.txt
+      - sonus_artifacts/BUILD.log
