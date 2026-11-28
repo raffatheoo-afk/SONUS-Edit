@@ -4,16 +4,20 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
+      groups:
+        - sonus_edit_release
       vars:
         CM_CLONE_DEPTH: 1
         CM_CLONE_UNSHALLOW: 'false'
-      # The existing persistent signer is supplied by Codemagic secure variables / signing setup.
-      # If using Code signing identities, add the exact existing reference under:
-      # android_signing:
-      #   - <EXACT_EXISTING_KEYSTORE_REFERENCE_NAME>
-      # If using a secure variable group instead, reference that existing group under `groups`.
-      # Never embed keystore material or passwords in this repository.
-      java: 17
+        java: 17
+      # Group configured in Codemagic > Environment variables.
+      # Required secret variables in this group:
+      #   CM_KEYSTORE          (Base64-encoded existing .jks/.keystore)
+      #   CM_KEYSTORE_PASSWORD
+      #   CM_KEY_ALIAS
+      #   CM_KEY_PASSWORD
+      # CM_KEYSTORE_PATH is generated safely during the build; do not store the path
+      # or keystore contents in source control. No new signing key is generated.
     cache:
       cache_paths:
         - $HOME/.gradle/caches
@@ -331,27 +335,52 @@ workflows:
 
           echo "Sonus Edit 1.0.7 / CODE17 static validation passed."
 
-      - name: Verify existing Codemagic signing identity
+      - name: Restore and verify existing Codemagic signing identity
         script: |
           set -euo pipefail
-          # Use the key already configured in Codemagic. Never generate, replace or embed a signer here.
-          SONUS_KEYSTORE_PATH="${SONUS_KEYSTORE_PATH:-${CM_KEYSTORE_PATH:-}}"
-          SONUS_KEYSTORE_PASSWORD="${SONUS_KEYSTORE_PASSWORD:-${CM_KEYSTORE_PASSWORD:-}}"
-          SONUS_KEY_ALIAS="${SONUS_KEY_ALIAS:-${CM_KEY_ALIAS:-}}"
-          SONUS_KEY_PASSWORD="${SONUS_KEY_PASSWORD:-${CM_KEY_PASSWORD:-}}"
-          test -n "$SONUS_KEYSTORE_PATH" || { echo "ERROR: SONUS_KEYSTORE_PATH ausente." >&2; exit 31; }
-          test -n "$SONUS_KEYSTORE_PASSWORD" || { echo "ERROR: SONUS_KEYSTORE_PASSWORD ausente." >&2; exit 31; }
-          test -n "$SONUS_KEY_ALIAS" || { echo "ERROR: SONUS_KEY_ALIAS ausente." >&2; exit 31; }
-          test -n "$SONUS_KEY_PASSWORD" || { echo "ERROR: SONUS_KEY_PASSWORD ausente." >&2; exit 31; }
-          test -f "$SONUS_KEYSTORE_PATH"
-          keytool -list -keystore "$SONUS_KEYSTORE_PATH" -storepass "$SONUS_KEYSTORE_PASSWORD" -alias "$SONUS_KEY_ALIAS" >/dev/null 2>&1
+          # The existing keystore is stored as a Secret Base64 variable in the
+          # sonus_edit_release group. Decode it only into the ephemeral build machine.
+          : "${CM_KEYSTORE:?ERROR: CM_KEYSTORE ausente no grupo sonus_edit_release.}"
+          : "${CM_KEYSTORE_PASSWORD:?ERROR: CM_KEYSTORE_PASSWORD ausente no grupo sonus_edit_release.}"
+          : "${CM_KEY_ALIAS:?ERROR: CM_KEY_ALIAS ausente no grupo sonus_edit_release.}"
+          : "${CM_KEY_PASSWORD:?ERROR: CM_KEY_PASSWORD ausente no grupo sonus_edit_release.}"
+
+          SIGN_DIR="$CM_BUILD_DIR/.sonus-edit-signing"
+          KEYSTORE_PATH="$SIGN_DIR/sonus-edit-existing.jks"
+          mkdir -p "$SIGN_DIR"
+          chmod 700 "$SIGN_DIR"
+          python3 - "$KEYSTORE_PATH" <<'PY_KEYSTORE'
+          import base64
+          import os
+          import re
+          import sys
+          from pathlib import Path
+
+          encoded = re.sub(r"\s+", "", os.environ.get("CM_KEYSTORE", ""))
+          try:
+              payload = base64.b64decode(encoded, validate=True)
+          except Exception as exc:
+              raise SystemExit(f"ERROR: CM_KEYSTORE não contém Base64 válido ({type(exc).__name__}).")
+          if len(payload) < 512:
+              raise SystemExit("ERROR: keystore decodificado está vazio ou pequeno demais.")
+          target = Path(sys.argv[1])
+          target.write_bytes(payload)
+          target.chmod(0o600)
+          PY_KEYSTORE
+
+          # Confirm the supplied alias/password pair against the existing keystore.
+          if ! keytool -list -keystore "$KEYSTORE_PATH" -storepass "$CM_KEYSTORE_PASSWORD" -alias "$CM_KEY_ALIAS" >/dev/null 2>&1; then
+            echo "ERROR: keystore restaurado, mas alias/senha não conferem. Verifique as três variáveis secretas de credenciais." >&2
+            exit 32
+          fi
           {
-            printf 'SONUS_KEYSTORE_PATH=%s\n' "$SONUS_KEYSTORE_PATH"
-            printf 'SONUS_KEYSTORE_PASSWORD=%s\n' "$SONUS_KEYSTORE_PASSWORD"
-            printf 'SONUS_KEY_ALIAS=%s\n' "$SONUS_KEY_ALIAS"
-            printf 'SONUS_KEY_PASSWORD=%s\n' "$SONUS_KEY_PASSWORD"
+            printf 'CM_KEYSTORE_PATH=%s\n' "$KEYSTORE_PATH"
+            printf 'SONUS_KEYSTORE_PATH=%s\n' "$KEYSTORE_PATH"
+            printf 'SONUS_KEYSTORE_PASSWORD=%s\n' "$CM_KEYSTORE_PASSWORD"
+            printf 'SONUS_KEY_ALIAS=%s\n' "$CM_KEY_ALIAS"
+            printf 'SONUS_KEY_PASSWORD=%s\n' "$CM_KEY_PASSWORD"
           } >> "$CM_ENV"
-          echo "Assinatura existente do Codemagic validada; nenhuma chave foi criada ou substituída."
+          echo "Keystore existente restaurado e validado. Nenhuma chave foi criada, substituída ou alterada."
 
       - name: Install Gradle 8.13
         script: |
