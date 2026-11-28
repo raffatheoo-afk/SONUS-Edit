@@ -4,20 +4,20 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m2
     environment:
+      # Register the EXISTING Sonus Edit keystore under this exact reference in
+      # Codemagic > Team settings > codemagic.yaml settings > Code signing identities
+      # > Android keystores. Upload the original keystore; do not create a new one.
+      android_signing:
+        - sonus_edit_existing
       groups:
         - sonus_edit_release
       vars:
         CM_CLONE_DEPTH: 1
         CM_CLONE_UNSHALLOW: 'false'
         java: 17
-      # Group configured in Codemagic > Environment variables.
-      # Required secret variables in this group:
-      #   CM_KEYSTORE          (Base64-encoded existing .jks/.keystore)
-      #   CM_KEYSTORE_PASSWORD
-      #   CM_KEY_ALIAS
-      #   CM_KEY_PASSWORD
-      # CM_KEYSTORE_PATH is generated safely during the build; do not store the path
-      # or keystore contents in source control. No new signing key is generated.
+      # The old CM_KEYSTORE environment variable may remain in the group, but this
+      # workflow no longer uses it. Codemagic injects CM_KEYSTORE_PATH and the three
+      # credential variables from the registered android_signing identity.
     cache:
       cache_paths:
         - $HOME/.gradle/caches
@@ -335,52 +335,71 @@ workflows:
 
           echo "Sonus Edit 1.0.7 / CODE17 static validation passed."
 
-      - name: Restore and verify existing Codemagic signing identity
+      - name: Verify existing Codemagic Android signing identity
         script: |
           set -euo pipefail
-          # The existing keystore is stored as a Secret Base64 variable in the
-          # sonus_edit_release group. Decode it only into the ephemeral build machine.
-          : "${CM_KEYSTORE:?ERROR: CM_KEYSTORE ausente no grupo sonus_edit_release.}"
-          : "${CM_KEYSTORE_PASSWORD:?ERROR: CM_KEYSTORE_PASSWORD ausente no grupo sonus_edit_release.}"
-          : "${CM_KEY_ALIAS:?ERROR: CM_KEY_ALIAS ausente no grupo sonus_edit_release.}"
-          : "${CM_KEY_PASSWORD:?ERROR: CM_KEY_PASSWORD ausente no grupo sonus_edit_release.}"
+          : "${CM_KEYSTORE_PATH:?ERROR: Codemagic não injetou CM_KEYSTORE_PATH. Cadastre o keystore existente em Code signing identities e confira a referência sonus_edit_existing.}"
+          : "${CM_KEYSTORE_PASSWORD:?ERROR: senha do keystore não foi injetada por android_signing.}"
+          : "${CM_KEY_ALIAS:?ERROR: alias da chave não foi injetado por android_signing.}"
+          : "${CM_KEY_PASSWORD:?ERROR: senha da chave não foi injetada por android_signing.}"
 
-          SIGN_DIR="$CM_BUILD_DIR/.sonus-edit-signing"
-          KEYSTORE_PATH="$SIGN_DIR/sonus-edit-existing.jks"
+          test -f "$CM_KEYSTORE_PATH" || {
+            echo "ERROR: Codemagic informou CM_KEYSTORE_PATH, mas o arquivo não existe." >&2
+            exit 31
+          }
+
+          # Verify keystore password + alias and compare its certificate fingerprint
+          # with the original CODE16 signer. This prevents accidental signing-key changes.
+          KEYTOOL_REPORT="$(keytool -list -v -keystore "$CM_KEYSTORE_PATH" -storepass "$CM_KEYSTORE_PASSWORD" -alias "$CM_KEY_ALIAS" 2>&1)" || {
+            echo "ERROR: keystore não abriu com a senha/alias fornecidos pela identidade Codemagic." >&2
+            exit 32
+          }
+          ACTUAL_FINGERPRINT="$(printf '%s\n' "$KEYTOOL_REPORT" | awk -F': ' '/SHA256:/{print toupper($2); exit}' | tr -d '[:space:]')"
+          EXPECTED_FINGERPRINT="FF:38:FE:A1:78:58:71:C7:18:9C:18:20:22:3B:E4:50:DF:58:D7:3D:CF:9C:58:B7:CA:2E:5D:F7:E5:01:CB:6F"
+          if [ "$ACTUAL_FINGERPRINT" != "$EXPECTED_FINGERPRINT" ]; then
+            echo "ERROR: a identidade Codemagic não corresponde ao certificado original do SONUS EDIT CODE16. Build cancelado para preservar a assinatura." >&2
+            echo "Fingerprint esperado: $EXPECTED_FINGERPRINT" >&2
+            echo "Fingerprint recebido: ${ACTUAL_FINGERPRINT:-não identificado}" >&2
+            exit 33
+          fi
+
+          # Validate the private-key password without printing or exporting secrets.
+          SIGN_DIR="$CM_BUILD_DIR/.sonus-edit-signing-check"
           mkdir -p "$SIGN_DIR"
           chmod 700 "$SIGN_DIR"
-          python3 - "$KEYSTORE_PATH" <<'PY_KEYSTORE'
-          import base64
-          import os
-          import re
-          import sys
-          from pathlib import Path
+          cat > "$SIGN_DIR/VerifySonusSigningKey.java" <<'JAVA_VERIFY'
+          import java.io.FileInputStream;
+          import java.security.Key;
+          import java.security.KeyStore;
+          import java.security.PrivateKey;
+          public final class VerifySonusSigningKey {
+              public static void main(String[] args) throws Exception {
+                  String path = System.getenv("CM_KEYSTORE_PATH");
+                  String alias = System.getenv("CM_KEY_ALIAS");
+                  char[] storePassword = System.getenv("CM_KEYSTORE_PASSWORD").toCharArray();
+                  char[] keyPassword = System.getenv("CM_KEY_PASSWORD").toCharArray();
+                  KeyStore store = KeyStore.getInstance("JKS");
+                  try (FileInputStream in = new FileInputStream(path)) {
+                      store.load(in, storePassword);
+                  }
+                  if (!store.containsAlias(alias)) throw new IllegalStateException("Alias ausente no keystore.");
+                  Key key = store.getKey(alias, keyPassword);
+                  if (!(key instanceof PrivateKey)) throw new IllegalStateException("Alias não contém chave privada.");
+                  System.out.println("Senha do keystore, alias e senha da chave validados.");
+              }
+          }
+          JAVA_VERIFY
+          javac -d "$SIGN_DIR" "$SIGN_DIR/VerifySonusSigningKey.java"
+          java -cp "$SIGN_DIR" VerifySonusSigningKey
+          rm -rf "$SIGN_DIR"
 
-          encoded = re.sub(r"\s+", "", os.environ.get("CM_KEYSTORE", ""))
-          try:
-              payload = base64.b64decode(encoded, validate=True)
-          except Exception as exc:
-              raise SystemExit(f"ERROR: CM_KEYSTORE não contém Base64 válido ({type(exc).__name__}).")
-          if len(payload) < 512:
-              raise SystemExit("ERROR: keystore decodificado está vazio ou pequeno demais.")
-          target = Path(sys.argv[1])
-          target.write_bytes(payload)
-          target.chmod(0o600)
-          PY_KEYSTORE
-
-          # Confirm the supplied alias/password pair against the existing keystore.
-          if ! keytool -list -keystore "$KEYSTORE_PATH" -storepass "$CM_KEYSTORE_PASSWORD" -alias "$CM_KEY_ALIAS" >/dev/null 2>&1; then
-            echo "ERROR: keystore restaurado, mas alias/senha não conferem. Verifique as três variáveis secretas de credenciais." >&2
-            exit 32
-          fi
           {
-            printf 'CM_KEYSTORE_PATH=%s\n' "$KEYSTORE_PATH"
-            printf 'SONUS_KEYSTORE_PATH=%s\n' "$KEYSTORE_PATH"
+            printf 'SONUS_KEYSTORE_PATH=%s\n' "$CM_KEYSTORE_PATH"
             printf 'SONUS_KEYSTORE_PASSWORD=%s\n' "$CM_KEYSTORE_PASSWORD"
             printf 'SONUS_KEY_ALIAS=%s\n' "$CM_KEY_ALIAS"
             printf 'SONUS_KEY_PASSWORD=%s\n' "$CM_KEY_PASSWORD"
           } >> "$CM_ENV"
-          echo "Keystore existente restaurado e validado. Nenhuma chave foi criada, substituída ou alterada."
+          echo "Identidade de assinatura original validada por fingerprint e chave privada. Nenhuma chave foi criada ou alterada."
 
       - name: Install Gradle 8.13
         script: |
